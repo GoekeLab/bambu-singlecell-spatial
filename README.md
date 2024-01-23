@@ -16,12 +16,16 @@ To run this pipeline, you will need Nextflow and Docker (or Singularity if you a
 We can test if this pipeline is installed correctly by running the following code using a small test set that comes with the Docker container.
 
 ``` 
-nextflow run GoekeLab/bambu-SingleCell-Spatial --reads [] --genome [] --annotation [] --whitelist [] \ 
-  --chemistry [] --technology [] --ncore [] --outdir [] \
+nextflow run GoekeLab/bambu-SingleCell-Spatial \
+  --reads reads_chr9_1_1000000.fastq.gz \
+  --genome Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
+  --annotation Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
+  --whitelist 737K-august-2016.txt.gz \ 
+  --chemistry 10x5v2 --technology ONT --ncore 4 --outdir output \
   -with-singularity 
 ``` 
 
-You can run the code above with your own dataset by replacing `[]` in the arguments accordingly. The pipeline works on both the **long read sequencing** platform Oxford Nanopore Technologies (ONT) and PacBio at the single-cell and spatial level. The description for each argument is shown below: 
+You can run the code above with your own dataset by replacing the arguments accordingly. The pipeline works on both the **long read sequencing** platform Oxford Nanopore Technologies (ONT) and PacBio at the single-cell and spatial level. The description for each argument is shown below: 
 
 **1.reads** - a path to the read file (.fastq.gz) from a single-cell or spatial experiment run. The read name of this file has the follows the usual naming convention for reads from single-cell or spatial data: e.g. `ATCCGTCCAACGGGTA_TTGCTGGCGTGT#46f0ce76-6a12-4a12-a707-2ffef7be7594_+1of1`. The first 16 characters `ATCCGTCCAACGGGTA` refer to the cell barcode (CB) and the next 12 characters `TTGCTGGCGTGT` after the underscore refers to the unique molecular identifier (UMI).   
 

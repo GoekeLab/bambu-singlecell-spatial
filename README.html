@@ -379,21 +379,25 @@ isoform expression or isoform switching event detection.</p>
 <h3><strong>Installation</strong></h3>
 <p>To run this pipeline, you will need Nextflow and Docker (or
 Singularity if you are working on a high performance computing
-clusters). Latest version is recommended for the installation.</p>
+clusters). Latest version is recommended.</p>
 </div>
 <div id="general-usage" class="section level3">
 <h3><strong>General Usage</strong></h3>
 <p>We can test if this pipeline is installed correctly by running the
 following code using a small test set that comes with the Docker
 container.</p>
-<pre><code>nextflow run GoekeLab/bambu-SingleCell-Spatial --reads [] --genome [] --annotation [] --whitelist [] \ 
-  --chemistry [] --technology [] --ncore [] --outdir [] \
+<pre><code>nextflow run GoekeLab/bambu-SingleCell-Spatial \
+  --reads reads_chr9_1_1000000.fastq.gz \
+  --genome Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
+  --annotation Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
+  --whitelist 737K-august-2016.txt.gz \ 
+  --chemistry 10x5v2 --technology ONT --ncore 4 --outdir output \
   -with-singularity </code></pre>
-<p>You can run the code above with your own dataset by replacing
-<code>[]</code> in the arguments accordingly. The pipeline works on both
-the <strong>long read sequencing</strong> platform Oxford Nanopore
-Technologies (ONT) and PacBio at the single-cell and spatial level. The
-description for each argument is shown below:</p>
+<p>You can run the code above with your own dataset by replacing the
+arguments accordingly. The pipeline works on both the <strong>long read
+sequencing</strong> platform Oxford Nanopore Technologies (ONT) and
+PacBio at the single-cell and spatial level. The description for each
+argument is shown below:</p>
 <p><strong>1.reads</strong> - a path to the read file (.fastq.gz) from a
 single-cell or spatial experiment run. The read name of this file has
 the follows the usual naming convention for reads from single-cell or
