@@ -410,20 +410,17 @@ prepareAnnotations(). When not provided, de novo transcript discovery is
 performed. (see <a href="https://github.com/GoekeLab/bambu">Bambu</a>
 for more information)</p>
 <p><strong>4.whitelist</strong> - a path to the <code>gzipped</code>
-cell/spot barcode whitelist:</p>
+cell/spot barcode whitelist or the name of the barcode list (<a href="https://kb.10xgenomics.com/hc/en-us/articles/115004506263-What-is-a-barcode-whitelist-">single-cell</a>
+/ <a href="https://kb.10xgenomics.com/hc/en-us/articles/360041426992-Where-can-I-find-the-Space-Ranger-barcode-whitelist-and-their-coordinates-on-the-slide-">spatial</a>)
+provided by 10X Genomics. It is recommended to provide the correct
+whitelist as it is used as a reference to filter against low confidence
+putative barcodes, however you may also run this pipeline without
+providing it</p>
 <!--- | Choice of argument            | Name of barcodes list in 10x Genomics     | 
 |-------------|:----------------| 
 | visium-V1      |`visium-v1.txt` (The `V1` in `visium-V1 ` refers to the slide serial number for the Visium platform. The serial number may be replaced with the numbers that can range from 1 to 5) |
 | 10x3v3 (default)      | `3M-february-2018.txt.gz`|
 | 10x5v2      | `737-august-2016.txt`| --->
-<ul>
-<li><p>If you are unsure which barcode whitelist is appropriate for the
-run, please refer to the 10x Genomics documentation (<a href="https://kb.10xgenomics.com/hc/en-us/articles/115004506263-What-is-a-barcode-whitelist-">single-cell</a>
-/ <a href="https://kb.10xgenomics.com/hc/en-us/articles/360041426992-Where-can-I-find-the-Space-Ranger-barcode-whitelist-and-their-coordinates-on-the-slide-">spatial</a>)</p></li>
-<li><p>It is recommended to provide the correct whitelist as filtering
-was done to remove some spurious barcodes due to sequencing error, but
-you may also run this pipeline without providing it</p></li>
-</ul>
 <p><strong>5.technology</strong> - the long read sequencing platform
 used to generate the reads [<code>ONT</code> or <code>PacBio</code>.
 default:<code>ONT</code>]</p>
@@ -475,37 +472,37 @@ below:</p>
 genome using long reads data.</td>
 </tr>
 <tr class="even">
-<td align="left">sparse_counts_transcript.txt</td>
+<td align="left">sparse_counts_transcript.mtx.gz</td>
 <td align="left">Total read counts estimates for each transcript in each
 sample (sparse matrix format).</td>
 </tr>
 <tr class="odd">
-<td align="left">sparse_CPM_transcript.txt</td>
+<td align="left">sparse_CPM_transcript.mtx.gz</td>
 <td align="left">Counts per million (CPM) estimates for each transcript
 in each sample (sparse matrix format).</td>
 </tr>
 <tr class="even">
-<td align="left">sparse_fullLengthCounts_transcript.txt</td>
+<td align="left">sparse_fullLengthCounts_transcript.mtx.gz</td>
 <td align="left">Full length read counts estimates for each transcript
 in each sample (sparse matrix format).</td>
 </tr>
 <tr class="odd">
-<td align="left">sparse_uniqueCounts_transcript.txt</td>
+<td align="left">sparse_uniqueCounts_transcript.mtx.gz</td>
 <td align="left">Unique read counts estimates for each transcript in
 each sample (sparse matrix format).</td>
 </tr>
 <tr class="even">
-<td align="left">txNameToGeneIDMap.txt</td>
-<td align="left">Gene ID associated to each transcript arranged as in
-the transcript count estimates</td>
-</tr>
-<tr class="odd">
-<td align="left">sparse_counts_gene.txt</td>
+<td align="left">sparse_counts_gene.mtx.gz</td>
 <td align="left">Gene read counts estimates for each transcript in each
 sample.</td>
 </tr>
+<tr class="odd">
+<td align="left">txANDGenes.tsv.gz</td>
+<td align="left">Gene ID associated to each transcript arranged as in
+the transcript count estimates</td>
+</tr>
 <tr class="even">
-<td align="left">GeneIDMap.txt</td>
+<td align="left">genes.tsv.gz</td>
 <td align="left">Gene ID arranged as in the gene count estimates</td>
 </tr>
 </tbody>

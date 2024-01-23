@@ -10,7 +10,7 @@ This is a pipeline developed for context-aware transcript quantification from lo
 
 
 ### **Installation** 
-To run this pipeline, you will need Nextflow and Docker (or Singularity if you are working on a high performance computing clusters). Latest version is recommended for the installation. 
+To run this pipeline, you will need Nextflow and Docker (or Singularity if you are working on a high performance computing clusters). Latest version is recommended. 
 
 ### **General Usage** 
 We can test if this pipeline is installed correctly by running the following code using a small test set that comes with the Docker container.
@@ -29,17 +29,13 @@ You can run the code above with your own dataset by replacing `[]` in the argume
 
 **3.annotation** - a path to the reference annotation file (.gtf), a txdb object, or annotations object prepared by prepareAnnotations(). When not provided, de novo transcript discovery is performed. (see [Bambu](https://github.com/GoekeLab/bambu) for more information)
 
-**4.whitelist** - a path to the `gzipped` cell/spot barcode whitelist: 
+**4.whitelist** - a path to the `gzipped` cell/spot barcode whitelist or the name of the barcode list ([single-cell](https://kb.10xgenomics.com/hc/en-us/articles/115004506263-What-is-a-barcode-whitelist-) / [spatial](https://kb.10xgenomics.com/hc/en-us/articles/360041426992-Where-can-I-find-the-Space-Ranger-barcode-whitelist-and-their-coordinates-on-the-slide-)) provided by 10X Genomics. It is recommended to provide the correct whitelist as it is used as a reference to filter against low confidence putative barcodes, however you may also run this pipeline without providing it
 
 <!--- | Choice of argument            | Name of barcodes list in 10x Genomics     | 
 |-------------|:----------------| 
 | visium-V1      |`visium-v1.txt` (The `V1` in `visium-V1 ` refers to the slide serial number for the Visium platform. The serial number may be replaced with the numbers that can range from 1 to 5) |
 | 10x3v3 (default)      | `3M-february-2018.txt.gz`|
 | 10x5v2      | `737-august-2016.txt`| ---> 
-
-- If you are unsure which barcode whitelist is appropriate for the run, please refer to the 10x Genomics documentation ([single-cell](https://kb.10xgenomics.com/hc/en-us/articles/115004506263-What-is-a-barcode-whitelist-) / [spatial](https://kb.10xgenomics.com/hc/en-us/articles/360041426992-Where-can-I-find-the-Space-Ranger-barcode-whitelist-and-their-coordinates-on-the-slide-))
-
-- It is recommended to provide the correct whitelist as filtering was done to remove some spurious barcodes due to sequencing error, but you may also run this pipeline without providing it
 
 **5.technology** - the long read sequencing platform used to generate the reads [`ONT` or `PacBio`. default:`ONT`]
 
@@ -60,13 +56,13 @@ After the run, all the outputs will be stored in the folder specified by the `--
 | Output file name                | Description                                                             |
 |:----------------------|:------------------------------------------|
 | extended_annotations.gtf        | Extended transcript & gene annotations for the genome using long reads data.        |
-| sparse_counts_transcript.txt           | Total read counts estimates for each transcript in each sample (sparse matrix format).        |
-| sparse_CPM_transcript.txt              | Counts per million (CPM) estimates for each transcript in each sample (sparse matrix format). |
-| sparse_fullLengthCounts_transcript.txt | Full length read counts estimates for each transcript in each sample (sparse matrix format).  |
-| sparse_uniqueCounts_transcript.txt                | Unique read counts estimates for each transcript in each sample (sparse matrix format).       |
-| txNameToGeneIDMap.txt                 | Gene ID associated to each transcript arranged as in the transcript count estimates          |
-| sparse_counts_gene.txt                 | Gene read counts estimates for each transcript in each sample.         |
-| GeneIDMap.txt                 | Gene ID arranged as in the gene count estimates          |
+| sparse_counts_transcript.mtx.gz           | Total read counts estimates for each transcript in each sample (sparse matrix format).        |
+| sparse_CPM_transcript.mtx.gz              | Counts per million (CPM) estimates for each transcript in each sample (sparse matrix format). |
+| sparse_fullLengthCounts_transcript.mtx.gz | Full length read counts estimates for each transcript in each sample (sparse matrix format).  |
+| sparse_uniqueCounts_transcript.mtx.gz                | Unique read counts estimates for each transcript in each sample (sparse matrix format).       |
+| sparse_counts_gene.mtx.gz                 | Gene read counts estimates for each transcript in each sample.         |
+| txANDGenes.tsv.gz                 | Gene ID associated to each transcript arranged as in the transcript count estimates          |
+| genes.tsv.gz                 | Gene ID arranged as in the gene count estimates          |
 
 You may then use these count matrices for downstream analysis using tools like [Seurat](https://satijalab.org/seurat/) or [scanpy](https://www.google.com/search?q=scanpy&oq=scanpy&aqs=chrome..69i57.866j0j7&sourceid=chrome&ie=UTF-8). The following short tutorials demonstrate how to analyse the long read [single-cell]() and [spatial]() data using [Seurat](https://satijalab.org/seurat/). 
 
