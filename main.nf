@@ -26,39 +26,27 @@ process flexiplex{
 	maxForks params.ncore
 	
 	input: 
-	tuple val(sample), path(fastq), val(chemistry), val(technology), path(whitelist), val(x), val(b), val(u), val(x2)
+	tuple val(sample), path(fastq), val(chemistry), val(technology), path(whitelist)
 
 	output:
     tuple val(sample), path("new_reads.fastq"), val(chemistry), val(technology), emit: fastq
 
 	script:
 	"""	
-    x="$x"
-    b="$b"
-    u="$u"
-    x2="$x2"
+    chem="$chemistry"
     if [[ $chemistry == 10x3v3 ]]; then 
-        x="CTACACGACGCTCTTCCGATCT"
-        b="????????????????"
-        u="????????????"
-        x2="TTTTTTTTT"
+        chem="-x CTACACGACGCTCTTCCGATCT -b ???????????????? -u ???????????? -x TTTTTTTTT"
 	elif [[ $chemistry == 10x3v2 ]]; then 
-        x="CTACACGACGCTCTTCCGATCT"
-        b="????????????????"
-        u="??????????"
-        x2="TTTTTTTTT"
+        chem="-x CTACACGACGCTCTTCCGATCT -b ???????????????? -u ?????????? -x TTTTTTTTT"
 	elif [[ $chemistry == 10x5v2 ]]; then
-        x="CTACACGACGCTCTTCCGATCT"
-        b="????????????????"
-        u="??????????"
-        x2="TTTCTTATATGGG"
+        chem="-x CTACACGACGCTCTTCCGATCT -b ???????????????? -u ?????????? -x TTTCTTATATGGG"
 	fi
 
     gunzip -c $whitelist > whitelist.txt 
 	gunzip -c $fastq > reads.fastq 
-	flexiplex -p $params.ncore -x \$x -b \$b -u \$u -x \$x2 -f 0 reads.fastq
+	flexiplex -p $params.ncore \$chem -f 0 reads.fastq
 	python /mnt/software/filter-barcodes.py --whitelist whitelist.txt --outfile my_filtered_barcode_list.txt flexiplex_barcodes_counts.txt 
-	flexiplex -p $params.ncore -k my_filtered_barcode_list.txt -x \$x -b \$b -u \$u -x \$x2 -f 8 -e $params.flexiplex_e reads.fastq > new_reads.fastq
+	flexiplex -p $params.ncore -k my_filtered_barcode_list.txt \$chem -f 8 -e $params.flexiplex_e reads.fastq > new_reads.fastq
 	rm reads.fastq
     """
 }
@@ -318,7 +306,7 @@ workflow {
 
             readsChannel = Channel.fromPath(params.reads) \
                     | splitCsv(header:true, sep:',') \
-                    | map { row-> tuple(row.sample, file(row.fastq), row.chemistry, row.technology, row.whitelist, row.x, row.b, row.u, row.x2) }
+                    | map { row-> tuple(row.sample, file(row.fastq), row.chemistry, row.technology, row.whitelist) }
             flexiplex_out_ch = flexiplex(readsChannel)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
             //params.bams = minimap_out_ch
@@ -329,7 +317,7 @@ workflow {
             readsChannel = Channel.fromPath(params.reads)
             readsChannel.set{ch_test}
             ch_test = ch_test
-                .map {tuple("Bambu", it, params.chemistry, params.technology, params.whitelist, params.flexiplex_x, params.flexiplex_b, params.flexiplex_u, params.flexiplex_x2)}
+                .map {tuple("Bambu", it, params.chemistry, params.technology, params.whitelist)}
             flexiplex_out_ch = flexiplex(ch_test)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
             //params.bams = minimap_out_ch
