@@ -8,6 +8,12 @@ params.whitelist = false
 params.bambuPath = "bambu"
 params.lowMemory = false
 params.ncore = 4
+params.spatial = false
+
+params.NDR = false
+params.cleanReads = false
+params.keepChimericReads = false
+params.deduplicateUMIs = false
 //params.reads = false
 //params.bams = false
 
@@ -255,6 +261,7 @@ process bambu_quant{
     path(extendedAnno_NDR1)
     path(genome)
     val(bambuPath)
+    path(whitelist)
 
     output:
     path ('*.rds')
@@ -275,8 +282,12 @@ process bambu_quant{
     
     extendedAnno <- readRDS("$extendedAnno")
     quantData = readRDS("$quantData")
-    se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = $params.ncore, discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
-    saveRDS(se, paste0(runName, "_se.rds"))
+    if("$whitelist") == "FALSE"{
+        se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = $params.ncore, discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
+    } else{
+        se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = $params.ncore, spatial = "$whitelist", discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
+    }
+       saveRDS(se, paste0(runName, "_se.rds"))
 
     writeBambuOutput(se, path = ".", prefix = paste0(runName, "_sparse_"))
     """
@@ -296,6 +307,15 @@ process fusion_mode{
 
 // This is the workflow to execute the process 
 workflow {    
+
+if(params.spatial){
+    params.spatial = params.whitelist
+} else {
+    params.spatial = "FALSE"
+}
+
+
+
 	if (params.reads) {
 
         //User can provide either 1 .fastq file or a .csv with .fastq files
@@ -346,13 +366,13 @@ workflow {
             readClassConstruction_out_ch
                 .join(assignDist_out_ch, by:0)
                 .set { bambuQuant_inputs }
-            bambuQuant_out_ch =  bambu_quant(bambuQuant_inputs, extend_out_ch, "$params.genome", "$params.bambuPath")
+            bambuQuant_out_ch =  bambu_quant(bambuQuant_inputs, extend_out_ch, "$params.genome", "$params.bambuPath", "$params.spatial")
         }
         else{
             sampleIds = bamsChannel.collect{it[0]}
             bamsFiles = bamsChannel.collect{it[1]}
             bambuTxDisc_out_ch = bambu_discovery(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath")
-            bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath")
+            bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "$params.spatial")
         }
 
     }
@@ -366,12 +386,12 @@ workflow {
             readClassConstruction_out_ch
                 .join(assignDist_out_ch, by:0)
                 .set { bambuQuant_inputs }
-            bambuQuant_out_ch =  bambu_quant(bambuQuant_inputs, extend_out_ch, "$params.genome", "$params.bambuPath")        }
+            bambuQuant_out_ch =  bambu_quant(bambuQuant_inputs, extend_out_ch, "$params.genome", "$params.bambuPath", "$params.spatial")        }
         else{
             sampleIds = minimap_out_ch.collect{it[0]}
             bamsFiles = minimap_out_ch.collect{it[1]}
             bambuTxDisc_out_ch = bambu_discovery(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath")
-            bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath")
+            bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "$params.spatial")
         }
     }
 }
