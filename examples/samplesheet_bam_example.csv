@@ -1,0 +1,3 @@
+sample,bam,barcode_map,spatial_whitelist
+condition1,path/to/demultiplexed.bam,,
+condition2,path/to/not_demultiplexed.bam,path/to/condition2_barcode_map.csv,
