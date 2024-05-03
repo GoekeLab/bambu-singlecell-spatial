@@ -1,3 +1,3 @@
 sample,fastq
-replicate1,reads_chr9_1_1000000.fastq.gz
-replicate2,reads_chr9_1_1000000_rep2.fastq.gz
+replicate1,./bambu-singlecell-spatial/examples/reads_chr9_1_1000000.fastq.gz
+replicate2,./bambu-singlecell-spatial/examples/reads_chr9_1_1000000_rep2.fastq.gz

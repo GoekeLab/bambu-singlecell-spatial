@@ -4,7 +4,7 @@ nextflow.enable.dsl=2
 
 params.chemistry = "custom" //"10x3v3" "10x3v2" "10x5v2"
 params.technology = 'ONT' //"ONT" "PacBio"
-params.whitelist = "nowhitelistfile"
+params.whitelist = "null"
 params.bambuPath = "bambu"
 params.lowMemory = false
 params.ncore = 4
@@ -52,11 +52,11 @@ process flexiplex{
 
 	gunzip -c $fastq > reads.fastq 
 	flexiplex -p $params.ncore \$chem -f 0 reads.fastq
-    if [[ "$whitelist" == "nowhitelistfile" ]]; then
-        python /mnt/software/filter-barcodes.py --outfile my_filtered_barcode_list.txt flexiplex_barcodes_counts.txt 
+    if [[ "$whitelist" == "null" ]]; then
+        python /mnt/software/main.py --outfile my_filtered_barcode_list.txt flexiplex_barcodes_counts.txt 
     else
         gunzip -c $whitelist > whitelist.txt 
-	    python /mnt/software/filter-barcodes.py --outfile my_barcode_list.txt flexiplex_barcodes_counts.txt 
+	    python /mnt/software/main.py --outfile my_barcode_list.txt flexiplex_barcodes_counts.txt 
         awk '{print \$1}' whitelist.txt my_barcode_list.txt | sort | uniq -d > my_filtered_barcode_list.txt
 	fi
     flexiplex -p $params.ncore -k my_filtered_barcode_list.txt \$chem -f 8 -e $params.flexiplex_e reads.fastq > new_reads.fastq
@@ -143,11 +143,11 @@ process bambu_discovery{
     print(samples)
     print(runName)
     print(barcode_maps)
-
+    library(devtools)
     if("$bambuPath" == "bambu") {
-        library(bambu)
+        load_all("/mnt/software/bambu")
     } else {
-        library(devtools)
+        
         load_all("$bambuPath")
     }
 
@@ -191,10 +191,10 @@ process bambu_readClassConstruction{
 	""" 
 	#!/usr/bin/env Rscript
 
+    library(devtools)
     if("$bambuPath" == "bambu") {
-        library(bambu)
+        load_all("/mnt/software/bambu")
     } else {
-        library(devtools)
         load_all("$bambuPath")
     }
     annotations <- prepareAnnotations("$annotation")
@@ -231,10 +231,10 @@ process bambu_extend{
     samples = unlist(strsplit(samples, ','))
     print(samples)
 
+    library(devtools)
     if("$bambuPath" == "bambu") {
-        library(bambu)
+        load_all("/mnt/software/bambu")
     } else {
-        library(devtools)
         load_all("$bambuPath")
     }
     annotations <- prepareAnnotations("$annotation")
@@ -269,8 +269,9 @@ process bambu_assignDist{
 	""" 
 	#!/usr/bin/env Rscript
 
+    library(devtools)
     if("$bambuPath" == "bambu") {
-        library(bambu)
+        load_all("/mnt/software/bambu")
     } else {
         library(devtools)
         load_all("$bambuPath")
@@ -306,8 +307,9 @@ process bambu_quant{
     script:
     """
     #!/usr/bin/env Rscript
+    library(devtools)
     if("$bambuPath" == "bambu") {
-        library(bambu)
+        load_all("/mnt/software/bambu")
     } else {
         library(devtools)
         load_all("$bambuPath")
@@ -352,7 +354,10 @@ workflow {
 
             readsChannel = Channel.fromPath(params.reads) \
                     | splitCsv(header:true, sep:',') \
-                    | map { row-> tuple(row.sample, file(row.fastq), row.chemistry, row.technology, row.whitelist) }
+                    | map { row-> tuple(row.sample, file(row.fastq), 
+                                        row.containsKey("chemistry") ? row.chemistry : params.chemistry,
+                                        row.containsKey("technology") ? row.technology : params.technology,
+                                        row.containsKey("barcode_map") ? row.whitelist : params.whitelist) }
             flexiplex_out_ch = flexiplex(readsChannel)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
             //params.bams = minimap_out_ch
@@ -405,12 +410,12 @@ workflow {
 
             barcodeMaps2 = barcodeMaps.map { it == null ? it : "TRUE" }
 
-            if(params.whitelist == "nowhitelistfile" & whiteLists.any { it == '' }){
+            if(params.whitelist == "null" & whiteLists.any { it == '' }){
                 echo "Missing whitelist entries in samplesheet or no --whitelist provided"
                 exit 1
             }
             whiteLists2 = params.whitelist
-            if(whiteLists2 != "nowhitelistfile"){
+            if(whiteLists2 != "null"){
                 whiteLists2 = whiteLists { it == '' ? params.whitelist : it }
             }
 
