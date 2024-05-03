@@ -38,7 +38,7 @@ nextflow run GoekeLab/bambu-SingleCell-Spatial \
   --ncore 16 --outdir output \
   -with-singularity lingminhao/bambusc:test
 ``` 
-samplesheet_basic.csv 
+examples/samplesheet_basic.csv 
 | sample            | fastq     |
 |:---|:----------|
 | replicate1      | reads_chr9_1_1000000.fastq.gz |
@@ -76,7 +76,7 @@ Running Multiple Similiar Samples
 
 Additionally if your multiple samples require different parameters for demultiplexing and alignment you can provide these in the samplesheet. If any of the chemistry, technology, or whitelist columns are not provided, or if there is a missing entry, the pipeline will use the input from the --chemistry --technology and --whitelist arguments respectivly for the samples. 
 
-Multiple Sample with different parameters example: (samplesheet_custom_example.csv)
+Multiple Sample with different parameters example: (examples/samplesheet_custom_example.csv)
 | sample            | fastq     | chemistry      | technology | whitelist |
 |:---|:----------|:------|:------|:------| 
 | 3prime_1      | path/to/1.fastq.gz | 10x3v2 | ONT | path/to/whitelist.gz |
@@ -94,7 +94,7 @@ Multiple Sample with different parameters example: (samplesheet_custom_example.c
 
 3. The --barcode_map argument is provided in (or as a column in the samplesheet) to a .tsv or .csv with three columns. All reads not present in the table will be discarded from the analysis. The UMI column is optional if you do not need UMI deduplication or do not have UMIs in your data.
 
-Example: NO HEADER IN FILE (see barcode_map_example.csv)
+Example: NO HEADER IN FILE (see examples/barcode_map_example.csv)
 
 | Read Name            | Barcode     | UMI      | 
 |:---|:----------|:------| 
@@ -104,7 +104,7 @@ Multiple Samples:
 
 If running multiple samples you can instead path to a csv sample sheet containing the parameters neede for each sample. Samples with the same 'sample' name will be combined together and treated as one sample (for example when combining technical replicates that have the same barcodes). See the following argument descriptions on how the samplesheet can be filled out. Providing a barcode map is optional, and only required if the bam file does not contain the barcode information. Providing a spatial_whitelist is only required if using spatial data, and each sample uses a different whitelist/coordinates, otherwise it will use the whitelist providied by the --whitelist argument.
 
-Multiple Sample Example (samplesheet_bam_example.csv):
+Multiple Sample Example (examples/samplesheet_bam_example.csv):
 | sample            | bam     | barcode_map | spatial_whitelist
 |:---|:----------|:------|:------|  
 | condition1      | path/to/demultiplexed.bam | | |
