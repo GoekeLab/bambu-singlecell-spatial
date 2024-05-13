@@ -15,28 +15,30 @@ To run this pipeline, you will need [Nextflow](https://www.nextflow.io/docs/late
 ### **General Usage** 
 The pipeline can be run with one line, providing either the path directly to your input fastq/bam file or a samplesheet when running multiple samples. Below are example use cases which you can test using example data that comes with the container.
 
+You may need to specify -r main depending on your local environment. 
+Currently investigating issues when running on high performance clusters and pathing to the container.
+Note that in the examples that while we do not provide a whitelist paramter, it is generally recommended to do so. See arguments below.
+
 **Running a single sample**
 ``` 
 nextflow run GoekeLab/bambu-SingleCell-Spatial \
-  --reads reads_chr9_1_1000000.fastq.gz \
-  --genome Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
-  --annotation Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
+  --reads $PWD/examples/reads_chr9_1_1000000.fastq.gz \
+  --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
+  --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
   --chemistry 10x5v2 \
-  --whitelist 737K-august-2016.txt.gz \ #optional
   --ncore 16 --outdir output \
-  -with-singularity lingminhao/bambusc:test
+  -with-singularity lingminhao/bambusc:beta
 ``` 
 
 **Running multiple samples**
 ``` 
 nextflow run GoekeLab/bambu-SingleCell-Spatial \
-  --reads samplesheet_basic.csv \   # See the arguments section for format specifications
-  --genome Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
-  --annotation Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
-  --whitelist 737K-august-2016.txt.gz \  #optional, can be provided in the samplesheet instead
+  --reads $PWD/examples/samplesheet_basic.csv \   # See the arguments section for format specifications
+  --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
+  --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
   --chemistry 10x5v2 \ #can be provided in the samplesheet instead
   --ncore 16 --outdir output \
-  -with-singularity lingminhao/bambusc:test
+  -with-singularity lingminhao/bambusc:beta
 ``` 
 examples/samplesheet_basic.csv 
 | sample            | fastq     |
@@ -47,11 +49,11 @@ examples/samplesheet_basic.csv
 **Running from a demultiplexed bam (skip demultiplexing and alignment)**
 ``` 
 nextflow run GoekeLab/bambu-SingleCell-Spatial \
-  --bams demultiplexed.bam \   # See the arguments section for demutiplex format requirements
-  --genome Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
-  --annotation Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \ 
+  --bams $PWD/examples/demultiplexed.bam \   # See the arguments section for demutiplex format requirements
+  --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
+  --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \ 
   --ncore 16 --outdir output \
-  -with-singularity lingminhao/bambusc:test
+  -with-singularity lingminhao/bambusc:beta
 ``` 
 
 You can run the code above with your own dataset by replacing the arguments accordingly. The pipeline works on both the **long read sequencing** platform Oxford Nanopore Technologies (ONT) and PacBio at the single-cell and spatial level. The description for each argument is shown below: 
