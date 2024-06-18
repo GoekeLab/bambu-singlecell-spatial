@@ -1,3 +1,6 @@
+# **BETA**
+Not in a final state, please do not use unless you are a tester and know how to use it.
+
 # **Context-Aware Transcript Quantification from Long Read Single-Cell and Spatial Transcriptomics data**
 This is a pipeline developed for context-aware transcript discovery and quantification from long read single-cell and spatial transcriptomics data. The pipeline consists of 4 steps, barcode/UMI identification and demultiplexing with [flexiplex](https://davidsongroup.github.io/flexiplex/), genome alignment with minimap 2, and transcript discovery and quantification with [Bambu](https://github.com/GoekeLab/bambu/tree/BambuDev). The final output includes novel transcripts found in the sample and transcript level count matrices for each barcode/coordinate.
 
