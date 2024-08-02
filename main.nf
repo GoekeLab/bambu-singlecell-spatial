@@ -211,7 +211,7 @@ process bambu_extend{
     maxForks params.ncore
 
     input:
-    val(readClassFile)
+    path(readClassFile)
     path(genome)
     path(annotation)
     val(bambuPath)
