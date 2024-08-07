@@ -412,7 +412,7 @@ process bambu_discovery2{
     for(i in seq_len(max_chunks)){
         chunk = seq_len(chunk_size)*i
         if(i == max_chunks) chunk = chunk[which(chunk<ncol(se\$countMatrix))]
-        saveRDS(list(countMatrix = se\$countMatrix[,chunk], incompatibleCountMatrix = se\$incompatibleCountMatrix), paste0("chunks/counts_",i,".rds"))
+        saveRDS(list(countMatrix = se\$countMatrix[,chunk], incompatibleCountMatrix = se\$incompatibleCountMatrix[,chunk]), paste0("chunks/counts_",i,".rds"))
     }
     saveRDS(se\$readClassDt, "readClassDt.rds")
 
