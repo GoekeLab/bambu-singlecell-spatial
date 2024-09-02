@@ -338,7 +338,143 @@ process fusion_mode{
 
     script:
     """
-    bpipe run -p refBase=$jaffal_ref_dir $jaffal_ref_dir/JAFFAL.groovy $fastq
+    #!/usr/bin/env Rscript
+    library(devtools)
+    if("$bambuPath" == "bambu") {
+        load_all("/mnt/software/bambu")
+    } else {
+        library(devtools)
+        load_all("$bambuPath")
+    }
+    if(".txt" %in% "$sample"){runName = readLines("$sample")
+    } else{runName = "$sample"}
+
+
+    input = readRDS("$chunks")
+    id_number <- sub(".*counts_(\\\\d+)\\\\.rds", "\\\\1", "$chunks")
+    readClassDt = readRDS("$readClassDt")
+    quantData = list(readClassDt = readClassDt, countMatrix = input\$countMatrix, incompatibleCountMatrix = input\$incompatibleCountMatrix)
+    extendedAnno <- readRDS("$extendedAnno")
+
+    if("$whitelist" == FALSE){
+        se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = 1, discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
+    } else{
+        se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = 1, spatial = "$whitelist", discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
+    }
+    saveRDS(se, paste0(runName, "_se_",id_number,".rds"))
+
+    """
+}
+
+process bambu_quant_gather{
+    publishDir "$params.outdir", mode: 'copy'
+
+    input:
+    val(ses)
+    val(bambuPath)
+    val(sample)
+
+    output:
+    path ('*.rds')
+    path ('*.mtx')
+    path ('*.gtf')
+    path ('*.tsv')
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+    library(devtools)
+    if("$bambuPath" == "bambu") {
+        load_all("/mnt/software/bambu")
+    } else {
+        library(devtools)
+        load_all("$bambuPath")
+    }
+    if(".txt" %in% "$sample"){runName = readLines("$sample")
+    } else{runName = "$sample"}
+
+
+    samples = "$ses"
+    samples = gsub("[][]","", gsub(' ','', samples))
+    samples = unlist(strsplit(samples, ','))
+
+    chunkSes = list()
+    for(i in seq_along(samples)){
+        file = samples[i]
+        chunkSes[[i]]=readRDS(file)
+    }
+    incompatibleCounts = lapply(chunkSes, FUN = function(se){
+        metadata(se)\$incompatibleCounts
+    })
+    incompatibleCounts = do.call("cbind",incompatibleCounts)
+    se = do.call("cbind",chunkSes)
+    metadata(se) = list()
+    metadata(se)\$incompatibleCounts = incompatibleCounts
+    saveRDS(se, paste0(runName, "_se.rds"))
+    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_sparse_"))
+    """
+}
+
+
+process fusion_mode_JAFFAL{
+    container ''
+
+    input:
+    tuple val(sample),path(fastq), val(chemistry), val(technology)
+    val(bam)
+    path(genome)
+    path(annotation)
+    val(jaffal_ref_dir)
+
+    output:
+    path('sample1_fusion.bam')
+    path('fusionGene.fasta')
+    path('fusion.gtf')
+
+    script:
+    """
+    java -version
+    $jaffal_ref_dir/tools/bin/bpipe run -p $jaffal_ref_dir/JAFFAL.groovy $fastq
+
+    Rscript ${projectDir}/fusion_detection.R $genome $annotation jaffa_results.csv ${projectDir}
+
+    samtools view -bhL fusion.bed $bam | samtools fastq - > sample1_fusion.fastq
+    minimap2 -ax splice -G2200k -N 5 --sam-hit-only -t 20 fusionGene.fasta sample1_fusion.fastq | samtools sort -O bam -o sample1_fusion.bam -
+    samtools index sample1_fusion.bam 
+    """
+}
+
+process fusion_mode_bambu{
+    input:
+    path(bam)
+    path(fusionGeneScaffolds)
+    path(fusion_gtf)
+    val(bambuPath)
+    tuple val(cleanReads), val(keepChimericReads), val(deduplicateUMIs)
+
+    output:
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+
+    library(devtools)
+    if("$bambuPath" == "bambu") {
+        load_all("/mnt/software/bambu")
+    } else {
+        
+        load_all("$bambuPath")
+    }
+
+	annotations <- prepareAnnotations("$fusion_gtf")
+
+    se.fusion = bambu(reads = samples, annotations = annotations, genome = "$fusionGeneScaffolds", 
+                        ncore = $params.ncore, discovery = TRUE, quant = TRUE, 
+                        demultiplexed = TRUE, verbose = TRUE, assignDist = TRUE, 
+                        lowMemory = TRUE, yieldSize = 10000000, sampleNames = ids, 
+                        cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs),
+                        fusionMode = TRUE, NDR = 1)
+    saveRDS(se.fusion, paste0(runName, "_se_fusion.rds"))
     """
 }
 
@@ -453,7 +589,9 @@ workflow {
             }
         }
     }
+    if (params.fusionMode) {
+        fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(flexiplex_out_ch, bamsFiles, "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
+        fusion_mode_bambu_out_ch = fusion_mode_bambu(fusion_mode_JAFFAL_out_ch, "$params.bambuPath", params.bambuParams)
+    }
 }
-
-
 
