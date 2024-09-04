@@ -18,8 +18,8 @@ params.bambuParams = tuple(params.cleanReads, params.keepChimericReads, params.d
 params.barcodeMap = "TRUE"
 params.clusters = "auto"
 params.resolution = 0.8
-//params.reads = false
-//params.bams = false
+params.reads = null
+params.bams = null
 
 params.flexiplex_x = 'CTACACGACGCTCTTCCGATCT' //sequence Append flanking sequence to search for
 params.flexiplex_b = '????????????????' //sequence Append the barcode pattern to search for
@@ -260,7 +260,7 @@ process bambu_EM{
                 clusters = clusters)
 
     saveRDS(se, paste0(runName, "_se.rds"))
-    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_sparse_"))
+    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_EM_"))
     """
 
 }
