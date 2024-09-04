@@ -224,11 +224,15 @@ process bambu_quant{
         source("${projectDir}/utilityFunctions.R")
         for(quantData in quantDatas){
             quantData.gene = transcriptToGeneExpression(quantData)
-            counts = assays(quantData.gene)\$counts
-            cellMix = clusterCells(counts, resolution = $resolution)
-            x = setNames(names(cellMix@active.ident), cellMix@active.ident)
-            clusters = c(clusters, splitAsList(unname(x), names(x)))
-            cellMixs = c(cellMixs, cellMix)
+            for(sample in unique(colData(quantData)\$sampleName)){
+                i = which(colData(quantData)\$sampleName == sample)
+                counts = assays(quantData.gene)\$counts[,i]
+                cellMix = clusterCells(counts, resolution = $resolution)
+                x = setNames(names(cellMix@active.ident), cellMix@active.ident)
+                names(x) = paste0(sample,"_",names(x))
+                clusters = c(clusters, splitAsList(unname(x), names(x)))
+                cellMixs = c(cellMixs, cellMix)
+            }
         }
         saveRDS(clusters, paste0(runName, "_clusters.rds"))
         saveRDS(cellMixs, paste0(runName, "_cellMixs.rds"))
