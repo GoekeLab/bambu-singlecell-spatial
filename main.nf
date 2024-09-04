@@ -16,7 +16,7 @@ params.keepChimericReads = "FALSE"
 params.deduplicateUMIs = "TRUE"
 params.bambuParams = tuple(params.cleanReads, params.keepChimericReads, params.deduplicateUMIs)
 params.barcodeMap = "TRUE"
-params.clusters = "NULL"
+params.clusters = "auto"
 params.resolution = 0.8
 //params.reads = false
 //params.bams = false
@@ -98,7 +98,7 @@ process minimap{
 	"""
 }
 
-process bambu_discovery{ 
+process bambu{ 
     publishDir "$params.outdir", mode: 'copy' 
 
 	cpus params.ncore 
@@ -122,6 +122,8 @@ process bambu_discovery{
 	path ('*extended_annotations.rds') 
     path ('*extended_annotations_NDR1.rds') 
     path ('*extended_annotations_NDR1.gtf') 
+    path ('*.mtx')
+    path ('*.tsv')
 
 	script:
 	""" 
@@ -174,11 +176,12 @@ process bambu_discovery{
     rm(annotations)
     se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = $whitelist)
     saveRDS(se, paste0(runName, "_quantData.rds"))
+    writeBambuOutput(do.call(cbind, se))
     #write(runName, "runName.txt")
 	"""
 }
 
-process bambu_quant{
+process bambu_EM{
 
 	publishDir "$params.outdir", mode: 'copy'
 
@@ -190,6 +193,8 @@ process bambu_quant{
     path(extendedAnno)
     path(extendedAnno_NDR1)
     path(extended_annotations_NDR1_gtf) 
+    path(counts)
+    path(metadata)
     path(genome)
     val(bambuPath)
     val(clusters)
@@ -218,7 +223,7 @@ process bambu_quant{
     quantDatas = readRDS("$quantData")
 
     #if no clustering provided, automatically cluster
-    if(is.null($clusters)){
+    if("$clusters" == "auto"){
         clusters = list()
         cellMixs = list()
         source("${projectDir}/utilityFunctions.R")
@@ -236,6 +241,9 @@ process bambu_quant{
         }
         saveRDS(clusters, paste0(runName, "_clusters.rds"))
         saveRDS(cellMixs, paste0(runName, "_cellMixs.rds"))
+    }
+    if("$clusters" == "none"){
+        clusters = NULL
     }
 
     se = bambu( reads = "test.rds", 
@@ -334,8 +342,8 @@ workflow {
         //    whileLists2 = "FALSE"
         //}
     }
-    bambuTxDisc_out_ch = bambu_discovery(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, "$params.lowMemory")
-    bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "$params.clusters", "$params.resolution")
+    bambuTxDisc_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, "$params.lowMemory")
+    bambuQuant_out_ch = bambu_EM(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "$params.clusters", "$params.resolution")
 }
 
 
