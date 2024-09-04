@@ -165,6 +165,18 @@ This changes the stringency of the alignment based on minimap2 recommendations.
 
 **--NDR** [FLOAT] - the NDR threshold used for Bambu transcript discovery. A value between 0 - 1, with lower values being more precise but less sensitive. Typically a value of 0.1 is suitable for most analyses. If you do not want transcript discovery set this value to 0. (default: automatically determined based on data)
 
+**--noEM** - When provided, the pipeline will not perform the final EM quantification step, and the final outputs will be the unique counts and gene counts summarised experiment objects
+
+**--resolution** [FLOAT] - the resolution used for the default Seurat clustering before the EM when --clusters is not provided
+
+**--clusters** [PATH, default: 'auto'] - a path to a tsv or csv (without a header), where the first column contains the barcodes and the second column contains the cluster name. Clustering will be done across all samples with the same sample names. If --lowMemory is provided, clustering is done per input file, they are not combined. Find an example in examples/barcode_clusters_example.csv. Default is 'auto' which will automatically cluster the cells based on gene expression with limited filtering. For advanced use cases where there is sufficient read counts per cell, --clusters can be set to 'none' to have the EM appled to each cell individually.
+
+| barcode            | cluster_id     |
+|:---|:----------|:------| 
+| GCGCGATAGCTAACAA | cluster1 |
+| TAGTGGTTCCTTTCTC | cluster1 |
+| TCTGGAAAGGTGACCA | cluster2 |
+
 **--[UNSTABLE]lowMemory** - At the cost of runtime, but reducing the max memory the pipeline will use at one time, the pipeline will perform the bambu steps for each input file seperately. *Important* - because read class construction is done seperately using this mode, this will impact the transcripts that are discovered and the quantification results slightly due to small stocastic differences in junction error correction. 
 
 **--[NYI]BambuDiscoveryParameters** [STRING] - A comma seperated sting containing optional parameters for bambu's transcript discovery opt.discovery argument e.g --BambuDiscoveryParameters 'remove.subsetTx = FALSE, min.readFractionByGene = 0'
@@ -224,6 +236,10 @@ Oliver Cheng, Min Hao Ling, Changqing Wang, Shuyi Wu, Matthew E Ritchie, Jonatha
 
 Minimap2
 Li, H. (2021). New strategies to improve minimap2 alignment accuracy. Bioinformatics, 37:4572-4574.
+
+Samtools
+
+Seurat
 
 ### **Contributors**
 This package is developed and maintained by [Andre Sim](https://github.com/andredsim), [Min Hao Ling](https://github.com/lingminhao) and [Jonathan Goeke](https://github.com/jonathangoeke) at the Genome Institute of Singapore. If you want to contribute, please leave an issue. Thank you.
