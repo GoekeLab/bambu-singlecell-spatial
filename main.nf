@@ -176,7 +176,7 @@ process bambu{
     rm(annotations)
     se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = $whitelist)
     saveRDS(se, paste0(runName, "_quantData.rds"))
-    writeBambuOutput(do.call(cbind, se))
+    writeBambuOutput(do.call(cbind, se), '.')
     #write(runName, "runName.txt")
 	"""
 }
