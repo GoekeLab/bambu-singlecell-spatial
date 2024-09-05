@@ -54,7 +54,7 @@ process flexiplex{
 
 	gunzip -c $fastq > reads.fastq 
 	flexiplex -p $params.ncore \$chem -f 0 reads.fastq
-    if [[ "$whitelist" == "null" ]]; then
+    if [[ $whitelist == "NULL" ]]; then
         python /mnt/software/main.py --outfile my_filtered_barcode_list.txt flexiplex_barcodes_counts.txt 
     else
         gunzip -c $whitelist > whitelist.txt 
@@ -293,6 +293,9 @@ workflow {
                                         row.containsKey("barcode_map") ? row.whitelist : params.whitelist) }
             flexiplex_out_ch = flexiplex(readsChannel)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
+            barcodeMaps = readsChannel.collect{it[5]}
+            barcodeMaps2 = barcodeMaps.map { it == null ? it : "TRUE" }
+            whiteLists2 = params.whitelist
             //params.bams = minimap_out_ch
         }
         else {  
@@ -304,6 +307,8 @@ workflow {
                 .map {tuple("Bambu", it, params.chemistry, params.technology, params.whitelist)}
             flexiplex_out_ch = flexiplex(ch_test)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
+            barcodeMaps2 = params.barcodeMap
+            whiteLists2 = params.whitelist
             //params.bams = minimap_out_ch
         }
         sampleIds = minimap_out_ch.collect{it[0]}
