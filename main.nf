@@ -249,7 +249,7 @@ process bambu_EM{
     se = bambu( reads = "test.rds", 
                 annotations = extendedAnno, 
                 genome = "$genome", 
-                quantData = quantData, 
+                quantData = quantDatas, 
                 assignDist = FALSE, 
                 ncore = $params.ncore, 
                 discovery = FALSE, 
