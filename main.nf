@@ -20,6 +20,7 @@ params.clusters = "auto"
 params.resolution = 0.8
 params.reads = null
 params.bams = null
+params.noEM = null
 
 params.flexiplex_x = 'CTACACGACGCTCTTCCGATCT' //sequence Append flanking sequence to search for
 params.flexiplex_b = '????????????????' //sequence Append the barcode pattern to search for
@@ -286,13 +287,16 @@ workflow {
                     | map { row-> tuple(row.sample, file(row.fastq), 
                                         row.containsKey("chemistry") ? row.chemistry : params.chemistry,
                                         row.containsKey("technology") ? row.technology : params.technology,
-                                        row.containsKey("barcode_map") ? row.whitelist : params.whitelist) }
+                                        row.containsKey("barcode_map") ? row.barcode_map :  params.barcodeMap,
+                                        row.containsKey("whitelist") ? row.whitelist : params.whitelist,
+                                        row.containsKey("clusters") ? row.whitelist : params.clusters) }
             flexiplex_out_ch = flexiplex(readsChannel)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
             barcodeMaps = readsChannel.collect{it[5]}
             barcodeMaps2 = barcodeMaps.map { it == null ? it : "TRUE" }
             whiteLists2 = params.whitelist
-            //params.bams = minimap_out_ch
+            clusters = readsChannel.collect{it[7]}
+            clusters2 = clusters.map { it == null ? it : "TRUE" }d
         }
         else {  
             //if (params.chemistry != "10x3v3"| params.chemistry != "10x3v2" | params.chemistry != "10x5v2"){ exit 1, "--chemistry must be one of (3prime-v3/3prime-v2/5prime-v2)" }
@@ -305,7 +309,8 @@ workflow {
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
             barcodeMaps2 = params.barcodeMap
             whiteLists2 = params.whitelist
-            //params.bams = minimap_out_ch
+            clusters2 = params.clusters
+
         }
         sampleIds = minimap_out_ch.collect{it[0]}
         bamsFiles = minimap_out_ch.collect{it[1]}
@@ -318,33 +323,35 @@ workflow {
                     | map { row-> 
                                 def barcodeMap = row.containsKey("barcode_map") ? row.barcode_map : null
                                 def spatialWhitelist = row.containsKey("spatial_whitelist") ? row.spatial_whitelist : null
-                                tuple(row.sample, file(row.bam), barcodeMap, spatialWhitelist) }
+                                def clusters = row.containsKey("clusters") ? row.clusters : null
+                                tuple(row.sample, file(row.bam), barcodeMap, spatialWhitelist, clusters) }
+            barcodeMaps = bamsChannel.collect{it[2]}
+            whiteLists = bamsChannel.collect{it[3]}
+            clusters = bamsChannel.collect{it[4]}
+
+            barcodeMaps2 = barcodeMaps.map { it == null ? it : params.barcodeMap }
+            clusters2 = clusters.map { it == null ? it : params.clusters }
+            whiteLists2 = whiteLists.map { it == null ? it : params.whitelist }
         }
         if(bam.getExtension() == "bam"){
             bamsChannel = Channel.fromPath(params.bams)
             bamsChannel = bamsChannel
                     .map {["Bambu", it]}
+
+            barcodeMaps2 = params.barcodeMap
+            whiteLists2 = params.whitelist
+            clusters2 = params.clusters
         }
         sampleIds = bamsChannel.collect{it[0]}
         bamsFiles = bamsChannel.collect{it[1]}
-        barcodeMaps = bamsChannel.collect{it[2]}
-        whiteLists = bamsChannel.collect{it[3]}
 
-        barcodeMaps2 = barcodeMaps.map { it == null ? it : "TRUE" }
 
-        if(params.whitelist == "null" & whiteLists.any { it == '' }){
-            echo "Missing whitelist entries in samplesheet or no --whitelist provided"
-            exit 1
-        }
-        whiteLists2 = params.whitelist
-        //if(whiteLists2 != "null"){
-        //    whiteLists2 = whiteLists { it == '' ? params.whitelist : it }
-        //} else{
-        //    whileLists2 = "FALSE"
-        //}
+
     }
-    bambuTxDisc_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2)
-    bambuQuant_out_ch = bambu_EM(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "$params.clusters", "$params.resolution")
+    bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2)
+    if(!params.noEM){
+        bambuEM_out_ch = bambu_EM(bambu_out_ch, "$params.genome", "$params.bambuPath", clusters2, "$params.resolution")
+    }
 }
 
 
