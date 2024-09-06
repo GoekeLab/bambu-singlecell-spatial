@@ -1,6 +1,6 @@
-if("Seurat" %in% rownames(installed.packages()) == FALSE) {remotes::install_github("satijalab/seurat", "seurat5", quiet = TRUE)}
-install.packages("SeuratObject")
-install.packages("Seurat")
+#if("Seurat" %in% rownames(installed.packages()) == FALSE) {remotes::install_github("satijalab/seurat", "seurat5", quiet = TRUE)}
+#install.packages("SeuratObject")
+#install.packages("Seurat")
 library(Seurat)
 
 clusterCells = function(counts, resolution = 0.8, dims = 1:15){

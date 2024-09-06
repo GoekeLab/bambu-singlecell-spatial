@@ -114,7 +114,6 @@ process bambu{
     val(NDR)
     val(barcode_map)
     val(whitelist)
-    val(lowMemory)
     
 
 	output: 
@@ -128,6 +127,7 @@ process bambu{
 	script:
 	""" 
 	#!/usr/bin/env Rscript
+    #.libPaths("/usr/local/lib/R/site-library")
 
     samples = "$bam"
     samples = gsub("[][]","", gsub(' ','', samples))
@@ -145,11 +145,7 @@ process bambu{
     } else {
         barcode_maps = TRUE
     }
-    
-    
-    print(samples)
-    print(runName)
-    print(barcode_maps)
+
     library(devtools)
     if("$bambuPath" == "bambu") {
         load_all("/mnt/software/bambu")
@@ -161,7 +157,7 @@ process bambu{
 	annotations <- prepareAnnotations("$annotation")
 
 	# Transcript discovery and generate readGrgList for each cell
-    readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, verbose = TRUE, assignDist = FALSE, lowMemory = $params.lowMemory, yieldSize = 10000000, sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
+    readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, verbose = TRUE, assignDist = FALSE, lowMemory = as.logical("$params.lowMemory"), yieldSize = 10000000, sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
     saveRDS(readClassFile, paste0(runName, "_readClassFile.rds"))
     if(isFALSE($NDR)){
         extendedAnno = bambu(reads = readClassFile, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
@@ -347,7 +343,7 @@ workflow {
         //    whileLists2 = "FALSE"
         //}
     }
-    bambuTxDisc_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, "$params.lowMemory")
+    bambuTxDisc_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2)
     bambuQuant_out_ch = bambu_EM(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "$params.clusters", "$params.resolution")
 }
 
