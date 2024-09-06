@@ -151,7 +151,6 @@ process bambu{
     if("$bambuPath" == "bambu") {
         load_all("/mnt/software/bambu")
     } else {
-        
         load_all("$bambuPath")
     }
 
@@ -173,7 +172,10 @@ process bambu{
     rm(annotations)
     se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = $whitelist)
     saveRDS(se, paste0(runName, "_quantData.rds"))
-    writeBambuOutput(do.call(cbind, se), '.')
+    for(se.x in se){
+        writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
+    }
+    #writeBambuOutput(do.call(cbind, se), '.')
     #write(runName, "runName.txt")
 	"""
 }
@@ -287,16 +289,17 @@ workflow {
                     | map { row-> tuple(row.sample, file(row.fastq), 
                                         row.containsKey("chemistry") ? row.chemistry : params.chemistry,
                                         row.containsKey("technology") ? row.technology : params.technology,
-                                        row.containsKey("barcode_map") ? row.barcode_map :  params.barcodeMap,
                                         row.containsKey("whitelist") ? row.whitelist : params.whitelist,
-                                        row.containsKey("clusters") ? row.whitelist : params.clusters) }
-            flexiplex_out_ch = flexiplex(readsChannel)
+                                        row.containsKey("barcode_map") ? row.barcode_map :  params.barcodeMap,
+                                        row.containsKey("clusters") ? row.whitelist : params.clusters) }        
+            flexiplex_out_ch = flexiplex(readsChannel.map{it[0..4]})
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
-            barcodeMaps = readsChannel.collect{it[5]}
-            barcodeMaps2 = barcodeMaps.map { it == null ? it : "TRUE" }
-            whiteLists2 = params.whitelist
+            barcodeMaps = readsChannel.collect{it[6]}
+            barcodeMaps2 = barcodeMaps.map { it == null ? it : params.barcodeMap }
+            whitelists = readsChannel.collect{it[5]}
+            whiteLists2 = whitelists.map { it == null ? it : params.whitelist }
             clusters = readsChannel.collect{it[7]}
-            clusters2 = clusters.map { it == null ? it : "TRUE" }d
+            clusters2 = clusters.map { it == null ? it : params.clusters }
         }
         else {  
             //if (params.chemistry != "10x3v3"| params.chemistry != "10x3v2" | params.chemistry != "10x5v2"){ exit 1, "--chemistry must be one of (3prime-v3/3prime-v2/5prime-v2)" }
