@@ -79,7 +79,7 @@ Running Multiple Similiar Samples
 | replicate3      | path/to/3.run1.fastq.gz |
 | replicate3      | path/to/3.run2.fastq.gz |
 
-Additionally if your multiple samples require different parameters for demultiplexing and alignment you can provide these in the samplesheet. If any of the chemistry, technology, or whitelist columns are not provided, or if there is a missing entry, the pipeline will use the input from the --chemistry --technology and --whitelist arguments respectivly for the samples. 
+Additionally if your multiple samples require different parameters for demultiplexing and alignment you can provide these in the samplesheet. If any of the chemistry, technology, or whitelist columns are not provided, or if there is a missing entry, the pipeline will use the input from the --chemistry --technology and --whitelist arguments respectively for the samples. 
 
 Multiple Sample with different parameters example: (examples/samplesheet_custom_example.csv)
 | sample            | fastq     | chemistry      | technology | whitelist |
@@ -131,21 +131,37 @@ Advanced use: If your sample was not barcoded by one of the above chemistries yo
 
 ### **Output** ###
 
-After the run, all the outputs will be stored in the folder specified by the `--outdir` parameter. The output files are described below: 
-
+After the run, all the outputs will be stored in the folder specified by the `--outdir` parameter. The output files are described below and are in 3 categories: General, Single Cell Level, Pseudobulk/EM Level
+ 
+ General
 | Output file name                | Description                                                             |
 |:----------------------|:------------------------------------------|
 | extended_annotations.gtf        | Extended transcript & gene annotations for the genome using long reads data.        |
+| txANDGenes.tsv                 | Gene ID associated to each transcript arranged as in the transcript count estimates          |
+| genes.tsv                 | Gene ID arranged as in the gene count estimates          |
+| extended_annotations_NDR1.gtf                | A gtf file containing all potential transcript models and their NDR score from Bambu (maximum sensitivity).   |
+
+Single-Cell Level
+| Output file name                | Description                                                             |
+|:----------------------|:------------------------------------------|
+| counts_transcript.mtx           | Total read counts estimates for each transcript in each sample (sparse matrix format).        |
+| counts_gene.mtx                 | Gene read counts estimates for each transcript in each sample.         |
+| incompatibleCounts.mtx                 | The counts that are unable to be assigned to transcripts per gene.         |
+| sampleData.tsv                 | Information for the columns for each sparse matrix. Includes if provided the sample names, barcodes, and x and y coordinates (for spatial)         |
+
+Pseudobulk/EM Level
+If clusters = "none" then this was also be at the single-cell level. See clusters
+| Output file name                | Description                                                             |
+|:----------------------|:------------------------------------------|
 | counts_transcript.mtx           | Total read counts estimates for each transcript in each sample (sparse matrix format).        |
 | CPM_transcript.mtx              | Counts per million (CPM) estimates for each transcript in each sample (sparse matrix format). |
 | fullLengthCounts_transcript.mtx | Full length read counts estimates for each transcript in each sample (sparse matrix format).  |
 | uniqueCounts_transcript.mtx                | Unique read counts estimates for each transcript in each sample (sparse matrix format).       |
 | counts_gene.mtx                 | Gene read counts estimates for each transcript in each sample.         |
 | incompatibleCounts.mtx                 | The counts that are unable to be assigned to transcripts per gene.         |
-| txANDGenes.tsv                 | Gene ID associated to each transcript arranged as in the transcript count estimates          |
-| genes.tsv                 | Gene ID arranged as in the gene count estimates          |
 | sampleData.tsv                 | Information for the columns for each sparse matrix. Includes if provided the sample names, barcodes, and x and y coordinates (for spatial)         |
-| extended_annotations_NDR1.gtf                | A gtf file containing all potential transcript models and their NDR score from Bambu (maximum sensitivity).   |
+| cellMixs.rds                 | PLACEHOLDER  |
+| clusters.rds                 | PLACEHOLDER |
 
 
 You may then use these count matrices for downstream analysis using tools like [Seurat](https://satijalab.org/seurat/) or [scanpy](https://www.google.com/search?q=scanpy&oq=scanpy&aqs=chrome..69i57.866j0j7&sourceid=chrome&ie=UTF-8). The following short tutorials demonstrate how to analyse the long read [single-cell]() and [spatial]() data using [Seurat](https://satijalab.org/seurat/). These can also be reloaded into R using importBambu("/path/to/outputDir")
@@ -164,6 +180,18 @@ You may then use these count matrices for downstream analysis using tools like [
 This changes the stringency of the alignment based on minimap2 recommendations.
 
 **--NDR** [FLOAT] - the NDR threshold used for Bambu transcript discovery. A value between 0 - 1, with lower values being more precise but less sensitive. Typically a value of 0.1 is suitable for most analyses. If you do not want transcript discovery set this value to 0. (default: automatically determined based on data)
+
+**--noEM** - When provided, the pipeline will not perform the final EM quantification step, and the final outputs will be the unique counts and gene counts summarised experiment objects
+
+**--resolution** [FLOAT] - the resolution used for the default Seurat clustering before the EM when --clusters is not provided
+
+**--clusters** [PATH, default: 'auto'] - a path to a tsv or csv (without a header), where the first column contains the barcodes and the second column contains the cluster name. Clustering will be done across all samples with the same sample names. If --lowMemory is provided, clustering is done per input file, they are not combined. Find an example in examples/barcode_clusters_example.csv. Default is 'auto' which will automatically cluster the cells based on gene expression with limited filtering. For advanced use cases where there is sufficient read counts per cell, --clusters can be set to 'none' to have the EM appled to each cell individually.
+
+| barcode            | cluster_id     |
+|:---|:----------|:------| 
+| GCGCGATAGCTAACAA | cluster1 |
+| TAGTGGTTCCTTTCTC | cluster1 |
+| TCTGGAAAGGTGACCA | cluster2 |
 
 **--[UNSTABLE]lowMemory** - At the cost of runtime, but reducing the max memory the pipeline will use at one time, the pipeline will perform the bambu steps for each input file seperately. *Important* - because read class construction is done seperately using this mode, this will impact the transcripts that are discovered and the quantification results slightly due to small stocastic differences in junction error correction. 
 
@@ -224,6 +252,10 @@ Oliver Cheng, Min Hao Ling, Changqing Wang, Shuyi Wu, Matthew E Ritchie, Jonatha
 
 Minimap2
 Li, H. (2021). New strategies to improve minimap2 alignment accuracy. Bioinformatics, 37:4572-4574.
+
+Samtools
+
+Seurat
 
 ### **Contributors**
 This package is developed and maintained by [Andre Sim](https://github.com/andredsim), [Min Hao Ling](https://github.com/lingminhao) and [Jonathan Goeke](https://github.com/jonathangoeke) at the Genome Institute of Singapore. If you want to contribute, please leave an issue. Thank you.

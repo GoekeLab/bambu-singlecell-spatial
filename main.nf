@@ -4,20 +4,23 @@ nextflow.enable.dsl=2
 
 params.chemistry = "custom" //"10x3v3" "10x3v2" "10x5v2"
 params.technology = 'ONT' //"ONT" "PacBio"
-params.whitelist = "null"
+params.whitelist = "NULL"
 params.bambuPath = "bambu"
-params.lowMemory = false
+params.lowMemory = "FALSE"
 params.ncore = 4
-params.spatial = false
+params.spatial = "FALSE"
 
 params.NDR = "NULL"
 params.cleanReads = "TRUE"
-params.keepChimericReads = false
+params.keepChimericReads = "FALSE"
 params.deduplicateUMIs = "TRUE"
 params.bambuParams = tuple(params.cleanReads, params.keepChimericReads, params.deduplicateUMIs)
 params.barcodeMap = "TRUE"
-//params.reads = false
-//params.bams = false
+params.clusters = "auto"
+params.resolution = 0.8
+params.reads = null
+params.bams = null
+params.noEM = null
 
 params.flexiplex_x = 'CTACACGACGCTCTTCCGATCT' //sequence Append flanking sequence to search for
 params.flexiplex_b = '????????????????' //sequence Append the barcode pattern to search for
@@ -52,7 +55,7 @@ process flexiplex{
 
 	gunzip -c $fastq > reads.fastq 
 	flexiplex -p $params.ncore \$chem -f 0 reads.fastq
-    if [[ "$whitelist" == "null" ]]; then
+    if [[ $whitelist == "NULL" ]]; then
         python /mnt/software/main.py --outfile my_filtered_barcode_list.txt flexiplex_barcodes_counts.txt 
     else
         gunzip -c $whitelist > whitelist.txt 
@@ -96,7 +99,7 @@ process minimap{
 	"""
 }
 
-process bambu_discovery{ 
+process bambu{ 
     publishDir "$params.outdir", mode: 'copy' 
 
 	cpus params.ncore 
@@ -111,16 +114,21 @@ process bambu_discovery{
     tuple val(cleanReads), val(keepChimericReads), val(deduplicateUMIs)
     val(NDR)
     val(barcode_map)
+    val(whitelist)
+    
 
 	output: 
     tuple val ('combined'), path ('*readClassFile.rds'), path ('*quantData.rds')
 	path ('*extended_annotations.rds') 
     path ('*extended_annotations_NDR1.rds') 
     path ('*extended_annotations_NDR1.gtf') 
+    path ('*.mtx')
+    path ('*.tsv')
 
 	script:
 	""" 
 	#!/usr/bin/env Rscript
+    #.libPaths("/usr/local/lib/R/site-library")
 
     samples = "$bam"
     samples = gsub("[][]","", gsub(' ','', samples))
@@ -138,23 +146,18 @@ process bambu_discovery{
     } else {
         barcode_maps = TRUE
     }
-    
-    
-    print(samples)
-    print(runName)
-    print(barcode_maps)
+
     library(devtools)
     if("$bambuPath" == "bambu") {
         load_all("/mnt/software/bambu")
     } else {
-        
         load_all("$bambuPath")
     }
 
 	annotations <- prepareAnnotations("$annotation")
 
 	# Transcript discovery and generate readGrgList for each cell
-    readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, verbose = TRUE, assignDist = FALSE, lowMemory = TRUE, yieldSize = 10000000, sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
+    readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, verbose = TRUE, assignDist = FALSE, lowMemory = as.logical("$params.lowMemory"), yieldSize = 10000000, sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
     saveRDS(readClassFile, paste0(runName, "_readClassFile.rds"))
     if(isFALSE($NDR)){
         extendedAnno = bambu(reads = readClassFile, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
@@ -167,122 +170,17 @@ process bambu_discovery{
     writeToGTF(extendedAnno_NDR1, paste0(runName, "extended_annotations_NDR1.gtf"))
     rm(extendedAnno_NDR1)
     rm(annotations)
-    se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE)
+    se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = $whitelist)
     saveRDS(se, paste0(runName, "_quantData.rds"))
+    for(se.x in se){
+        writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
+    }
+    #writeBambuOutput(do.call(cbind, se), '.')
     #write(runName, "runName.txt")
 	"""
 }
 
-process bambu_readClassConstruction{
-    cpus params.ncore
-    maxForks 1
-
-    input:
-	tuple val(runName),path(bam)
-	path(genome)
-	path(annotation)
-    val(bambuPath)
-    tuple val(cleanReads),val(keepChimericReads), val(deduplicateUMIs)
-
-	output: 
-    tuple val(runName), path ('*readClassFile.rds')
-
-    script:
-	""" 
-	#!/usr/bin/env Rscript
-
-    library(devtools)
-    if("$bambuPath" == "bambu") {
-        load_all("/mnt/software/bambu")
-    } else {
-        load_all("$bambuPath")
-    }
-    annotations <- prepareAnnotations("$annotation")
-    readClassFile = bambu(reads = "$bam", annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = TRUE, assignDist = FALSE, lowMemory = TRUE, yieldSize = 10000000, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
-    saveRDS(readClassFile, paste0("$runName", "_readClassFile.rds"))
-    """
-
-}
-
-process bambu_extend{
-    publishDir "$params.outdir", mode: 'copy'
-    
-    cpus params.ncore
-    maxForks params.ncore
-
-    input:
-    path(readClassFile)
-    path(genome)
-    path(annotation)
-    val(bambuPath)
-    val(NDR)
-
-	output: 
-    path ('*extended_annotations.rds') 
-    path ('*extended_annotations_NDR1.rds') 
-    path ('extended_annotations_NDR1.gtf')
-
-    script:
-	""" 
-	#!/usr/bin/env Rscript
-
-    samples = "$readClassFile"
-    samples = gsub("[][]","", gsub(' ','', samples))
-    samples = unlist(strsplit(samples, ','))
-    print(samples)
-
-    library(devtools)
-    if("$bambuPath" == "bambu") {
-        load_all("/mnt/software/bambu")
-    } else {
-        load_all("$bambuPath")
-    }
-    annotations <- prepareAnnotations("$annotation")
-    if(isFALSE($NDR)){
-        extendedAnno = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
-    } else{
-        extendedAnno = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE, NDR = $NDR)
-    }
-    saveRDS(extendedAnno, "_extended_annotations.rds")
-    extendedAnno_NDR1 = bambu(reads = samples, annotations = annotations, genome = "$genome", NDR = 1, ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
-    saveRDS(extendedAnno_NDR1, "_extended_annotations_NDR1.rds")
-    writeToGTF(extendedAnno_NDR1, "extended_annotations_NDR1.gtf")
-    """
-
-}
-
-process bambu_assignDist{
-    cpus params.ncore
-    maxForks params.ncore
-
-    input:
-    tuple val(runName),path(readClassFile)
-    path(extendedAnno)
-    path(extendedAnno_NDR1)
-    path(genome)
-    val(bambuPath)
-
-	output: 
-    tuple val(runName), path ('*quantData.rds'), emit: quantData
-
-    script:
-	""" 
-	#!/usr/bin/env Rscript
-
-    library(devtools)
-    if("$bambuPath" == "bambu") {
-        load_all("/mnt/software/bambu")
-    } else {
-        library(devtools)
-        load_all("$bambuPath")
-    }
-    extendedAnno <- readRDS("$extendedAnno")
-    se = bambu(reads = "$readClassFile", annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE)
-    saveRDS(se, paste0("$runName", "_quantData.rds"))
-    """
-}
-
-process bambu_quant{
+process bambu_EM{
 
 	publishDir "$params.outdir", mode: 'copy'
 
@@ -294,9 +192,12 @@ process bambu_quant{
     path(extendedAnno)
     path(extendedAnno_NDR1)
     path(extended_annotations_NDR1_gtf) 
+    path(counts)
+    path(metadata)
     path(genome)
     val(bambuPath)
-    val(whitelist)
+    val(clusters)
+    val(resolution)
 
     output:
     path ('*.rds')
@@ -307,26 +208,58 @@ process bambu_quant{
     script:
     """
     #!/usr/bin/env Rscript
+    #.libPaths("/usr/local/lib/R/site-library")
     library(devtools)
     if("$bambuPath" == "bambu") {
         load_all("/mnt/software/bambu")
     } else {
-        library(devtools)
         load_all("$bambuPath")
     }
     if(".txt" %in% "$sample"){runName = readLines("$sample")
     } else{runName = "$sample"}
     
     extendedAnno <- readRDS("$extendedAnno")
-    quantData = readRDS("$quantData")
-    if("$whitelist" == FALSE){
-        se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = $params.ncore, discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
-    } else{
-        se = bambu(reads = "test.rds", annotations = extendedAnno, genome = "$genome", quantData = quantData, assignDist = FALSE, ncore = $params.ncore, spatial = "$whitelist", discovery = FALSE, quant = TRUE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE))
-    }
-    saveRDS(se, paste0(runName, "_se.rds"))
+    quantDatas = readRDS("$quantData")
 
-    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_sparse_"))
+    #if no clustering provided, automatically cluster
+    if("$clusters" == "auto"){
+        clusters = list()
+        cellMixs = list()
+        source("${projectDir}/utilityFunctions.R")
+        for(quantData in quantDatas){
+            quantData.gene = transcriptToGeneExpression(quantData)
+            for(sample in unique(colData(quantData)\$sampleName)){
+                i = which(colData(quantData)\$sampleName == sample)
+                counts = assays(quantData.gene)\$counts[,i]
+                cellMix = clusterCells(counts, resolution = $resolution)
+                x = setNames(names(cellMix@active.ident), cellMix@active.ident)
+                names(x) = paste0(sample,"_",names(x))
+                clusters = c(clusters, splitAsList(unname(x), names(x)))
+                cellMixs = c(cellMixs, cellMix)
+            }
+        }
+        saveRDS(clusters, paste0(runName, "_clusters.rds"))
+        saveRDS(cellMixs, paste0(runName, "_cellMixs.rds"))
+    }
+    if("$clusters" == "none"){
+        clusters = NULL
+    }
+
+    se = bambu( reads = "test.rds", 
+                annotations = extendedAnno, 
+                genome = "$genome", 
+                quantData = quantDatas, 
+                assignDist = FALSE, 
+                ncore = $params.ncore, 
+                discovery = FALSE, 
+                quant = TRUE, 
+                demultiplexed = TRUE, 
+                verbose = FALSE, 
+                opt.em = list(degradationBias = FALSE), 
+                clusters = clusters)
+
+    saveRDS(se, paste0(runName, "_se.rds"))
+    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_EM_"))
     """
 
 }
@@ -481,7 +414,6 @@ process fusion_mode_bambu{
 // This is the workflow to execute the process 
 workflow {    
 	if (params.reads) {
-
         //User can provide either 1 .fastq file or a .csv with .fastq files
         fastq = file(params.reads, checkIfExists:true)
         if(fastq.getExtension() == "csv") {
@@ -493,10 +425,17 @@ workflow {
                     | map { row-> tuple(row.sample, file(row.fastq), 
                                         row.containsKey("chemistry") ? row.chemistry : params.chemistry,
                                         row.containsKey("technology") ? row.technology : params.technology,
-                                        row.containsKey("barcode_map") ? row.whitelist : params.whitelist) }
-            flexiplex_out_ch = flexiplex(readsChannel)
+                                        row.containsKey("whitelist") ? row.whitelist : params.whitelist,
+                                        row.containsKey("barcode_map") ? row.barcode_map :  params.barcodeMap,
+                                        row.containsKey("clusters") ? row.whitelist : params.clusters) }        
+            flexiplex_out_ch = flexiplex(readsChannel.map{it[0..4]})
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
-            //params.bams = minimap_out_ch
+            barcodeMaps = readsChannel.collect{it[6]}
+            barcodeMaps2 = barcodeMaps.map { it == null ? it : params.barcodeMap }
+            whitelists = readsChannel.collect{it[5]}
+            whiteLists2 = whitelists.map { it == null ? it : params.whitelist }
+            clusters = readsChannel.collect{it[7]}
+            clusters2 = clusters.map { it == null ? it : params.clusters }
         }
         else {  
             //if (params.chemistry != "10x3v3"| params.chemistry != "10x3v2" | params.chemistry != "10x5v2"){ exit 1, "--chemistry must be one of (3prime-v3/3prime-v2/5prime-v2)" }
@@ -507,12 +446,15 @@ workflow {
                 .map {tuple("Bambu", it, params.chemistry, params.technology, params.whitelist)}
             flexiplex_out_ch = flexiplex(ch_test)
             minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
-            //params.bams = minimap_out_ch
+            barcodeMaps2 = params.barcodeMap
+            whiteLists2 = params.whitelist
+            clusters2 = params.clusters
+
         }
-
-    }
-
-    if(!params.reads) {
+        sampleIds = minimap_out_ch.collect{it[0]}
+        bamsFiles = minimap_out_ch.collect{it[1]}
+     }
+    else{ //When starting from bam
         bam = file(params.bams, checkIfExists:true)
         if(bam.getExtension() == "csv") {
             bamsChannel = Channel.fromPath(params.bams) \
@@ -520,74 +462,34 @@ workflow {
                     | map { row-> 
                                 def barcodeMap = row.containsKey("barcode_map") ? row.barcode_map : null
                                 def spatialWhitelist = row.containsKey("spatial_whitelist") ? row.spatial_whitelist : null
-                                tuple(row.sample, file(row.bam), barcodeMap, spatialWhitelist) }
+                                def clusters = row.containsKey("clusters") ? row.clusters : null
+                                tuple(row.sample, file(row.bam), barcodeMap, spatialWhitelist, clusters) }
+            barcodeMaps = bamsChannel.collect{it[2]}
+            whiteLists = bamsChannel.collect{it[3]}
+            clusters = bamsChannel.collect{it[4]}
+
+            barcodeMaps2 = barcodeMaps.map { it == null ? it : params.barcodeMap }
+            clusters2 = clusters.map { it == null ? it : params.clusters }
+            whiteLists2 = whiteLists.map { it == null ? it : params.whitelist }
         }
         if(bam.getExtension() == "bam"){
             bamsChannel = Channel.fromPath(params.bams)
             bamsChannel = bamsChannel
                     .map {["Bambu", it]}
-        }
-        if(params.lowMemory){
-            //bambuTxDisc_out_ch = bambu_discovery(bamsChannel, "$params.genome", "$params.annotation")
-            //bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome")
-            readClassConstruction_out_ch = bambu_readClassConstruction(bamsChannel, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams)
-            extend_out_ch = bambu_extend(readClassConstruction_out_ch.collect{it[1]},"$params.genome","$params.annotation", "$params.bambuPath", "$params.NDR")
-            assignDist_out_ch = bambu_assignDist(readClassConstruction_out_ch, extend_out_ch, "$params.genome", "$params.bambuPath")
-            readClassConstruction_out_ch
-                .join(assignDist_out_ch, by:0)
-                .set { bambuQuant_inputs }
-            bambuQuant_out_ch =  bambu_quant(bambuQuant_inputs, extend_out_ch, "$params.genome", "$params.bambuPath", "$params.spatial")
-        }
-        else{
-            sampleIds = bamsChannel.collect{it[0]}
-            bamsFiles = bamsChannel.collect{it[1]}
-            barcodeMaps = bamsChannel.collect{it[2]}
-            whiteLists = bamsChannel.collect{it[3]}
 
-            barcodeMaps2 = barcodeMaps.map { it == null ? it : "TRUE" }
-
-            if(params.whitelist == "null" & whiteLists.any { it == '' }){
-                echo "Missing whitelist entries in samplesheet or no --whitelist provided"
-                exit 1
-            }
+            barcodeMaps2 = params.barcodeMap
             whiteLists2 = params.whitelist
-            if(whiteLists2 != "null"){
-                whiteLists2 = whiteLists { it == '' ? params.whitelist : it }
-            }
-
-
-            bambuTxDisc_out_ch = bambu_discovery(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2)
-            if(params.spatial){
-                bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", whiteLists2)
-            }
-            else{
-                bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "FALSE")
-            }
+            clusters2 = params.clusters
         }
+        sampleIds = bamsChannel.collect{it[0]}
+        bamsFiles = bamsChannel.collect{it[1]}
+
+
 
     }
-    else{ //When preprocessing steps were run
-        if(params.lowMemory){
-            //bambuTxDisc_out_ch = bambu_discovery(params.bams, "$params.genome", "$params.annotation")
-            //bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome")
-            readClassConstruction_out_ch = bambu_readClassConstruction(params.bams, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams)
-            extend_out_ch = bambu_extend(readClassConstruction_out_ch.collect{it[1]},"$params.genome","$params.annotation", "$params.bambuPath", "$params.NDR")
-            assignDist_out_ch = bambu_assignDist(readClassConstruction_out_ch, extend_out_ch, "$params.genome", "$params.bambuPath")
-            readClassConstruction_out_ch
-                .join(assignDist_out_ch, by:0)
-                .set { bambuQuant_inputs }
-            bambuQuant_out_ch =  bambu_quant(bambuQuant_inputs, extend_out_ch, "$params.genome", "$params.bambuPath", "$params.spatial")        }
-        else{
-            sampleIds = minimap_out_ch.collect{it[0]}
-            bamsFiles = minimap_out_ch.collect{it[1]}
-            bambuTxDisc_out_ch = bambu_discovery(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR", params.barcodeMap)
-            if(params.spatial){
-                bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", params.whitelist)
-            }
-            else{
-                bambuQuant_out_ch = bambu_quant(bambuTxDisc_out_ch, "$params.genome", "$params.bambuPath", "FALSE")
-            }
-        }
+    bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2)
+    if(!params.noEM){
+        bambuEM_out_ch = bambu_EM(bambu_out_ch, "$params.genome", "$params.bambuPath", clusters2, "$params.resolution")
     }
     if (params.fusionMode) {
         fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(flexiplex_out_ch, bamsFiles, "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
