@@ -1,6 +1,6 @@
 library(Seurat)
 
-clusterCells = function(counts, resolution = 0.8, dims = 1:15){
+clusterCells = function(counts, resolution = 0.8, dim = 15){
   
   cellMix <- CreateSeuratObject(counts = counts, 
                                 project = "cellMix", min.cells = 1)#, min.features = 200)
@@ -10,12 +10,12 @@ clusterCells = function(counts, resolution = 0.8, dims = 1:15){
   cellMix <- FindVariableFeatures(cellMix, selection.method = "vst", nfeatures = 2500)
   all.genes <- rownames(cellMix)
   cellMix <- ScaleData(cellMix, features = all.genes)
-  cellMix <- RunPCA(cellMix, features = VariableFeatures(object = cellMix))
-  dim = dim(cellMix@reductions$pca)[2]
-  if(dim < 15){ dims = 1:dim}
-  cellMix <- FindNeighbors(cellMix, dims = dims)
+  npcs = ifelse(ncol(counts)>50, 50, ncol(counts)-1)
+  cellMix <- RunPCA(cellMix, features = VariableFeatures(object = cellMix), npcs = npcs)
+  dim = ifelse(dim >= dim(cellMix@reductions$pca)[2], dim, dim(cellMix@reductions$pca)[2])
+  cellMix <- FindNeighbors(cellMix, dims = 1:dim)
   cellMix <- FindClusters(cellMix, resolution = resolution)
-  cellMix <- RunUMAP(cellMix, dims = dims)
+  cellMix <- RunUMAP(cellMix, dims = 1:dim)
   
   return(cellMix)
 }

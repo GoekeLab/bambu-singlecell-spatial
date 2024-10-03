@@ -86,11 +86,10 @@ getFusionAnnotations <- function(fusionGeneNames, anno.file,ensemblAnnotations.g
     tmp <- do.call("c",lapply(txid, function(t){
       print(t)
       tmp <- annotationRanges[t]
-      fusionTmp <- fusionTx[[s]][[t]]
+      fusionTmp <- fusionTx[[s]][[t]]   
       seqlevels(tmp, pruning.mode = "tidy") <- as.character(unique(seqnames(tmp)))
-      seqlevels(tmp) <- as.character(unique(seqnames(fusionTmp)))                                 
-      start(tmp[[1]]) <- start(fusionTmp)
-      end(tmp[[1]]) <- end(fusionTmp)
+      seqlevels(tmp) <- as.character(unique(seqnames(fusionTmp)))                        
+      ranges(tmp[[1]]) <- ranges(fusionTmp)
       # if negative strand
       if(unique(strand(tmp[[1]]))=="-"){
         tmp[[1]]$exon_rank <- max(tmp[[1]]$exon_rank)-tmp[[1]]$exon_rank+1
