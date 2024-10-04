@@ -178,7 +178,12 @@ process bambu{
     se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = spatial)
     saveRDS(se, paste0(runName, "_quantData.rds"))
     for(se.x in se){
-        writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
+        if(as.logical("$params.lowMemory")){
+            writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
+        } else{
+            writeBambuOutput(se.x, '.', prefix = "combined_")
+        }
+        
     }
     #writeBambuOutput(do.call(cbind, se), '.')
     #write(runName, "runName.txt")
