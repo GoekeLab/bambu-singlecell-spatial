@@ -8,7 +8,7 @@ params.whitelist = "NULL"
 params.bambuPath = "bambu"
 params.lowMemory = "FALSE"
 params.ncore = 4
-params.spatial = "FALSE"
+params.spatial = null
 
 params.NDR = "NULL"
 params.cleanReads = "TRUE"
@@ -156,6 +156,9 @@ process bambu{
         load_all("$bambuPath")
     }
 
+    spatial = "$whitelist"
+    if(spatial == "FALSE"){spatial = NULL}
+
 	annotations <- prepareAnnotations("$annotation")
 
 	# Transcript discovery and generate readGrgList for each cell
@@ -172,7 +175,7 @@ process bambu{
     writeToGTF(extendedAnno_NDR1, paste0(runName, "extended_annotations_NDR1.gtf"))
     rm(extendedAnno_NDR1)
     rm(annotations)
-    se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = $whitelist)
+    se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = spatial)
     saveRDS(se, paste0(runName, "_quantData.rds"))
     for(se.x in se){
         writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
@@ -352,6 +355,9 @@ workflow {
 
 
 
+    }
+    if(!params.spatial){
+        whiteLists2 = "FALSE" 
     }
     bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2)
     if(!params.noEM){
