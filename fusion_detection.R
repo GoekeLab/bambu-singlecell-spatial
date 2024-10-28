@@ -56,3 +56,45 @@ df <- data.frame(seqnames=seqnames(gr),
 
 write.table(df, file="fusion.bed", quote=F, sep="\t", row.names=F, col.names=F)
 writeToGTF(fusionAnnotations, file = "fusion.gtf")
+
+fusionGeneNames.unique = unique(fusionGeneNames)
+
+fusionGeneNames.toPrint = unlist(sapply(seq_along(fusionGeneNames.unique), function(s){
+  tmp <- fusionGeneNames.unique[s]
+  genevec <- unlist(strsplit(tmp, ":"))
+  if(all(genevec %in% ensemblAnnotations.genes$hgnc_symbol)){
+    return(tmp)
+  }}))
+
+fusionGeneSequence <- unlist(lapply(seq_along(fusionGeneNames.toPrint), function(s){
+    tmp <- fusionGeneNames.toPrint[s]
+    genevec <- unlist(strsplit(tmp, ":"))
+    paste(unlist(lapply(seq_along(genevec), function(g){
+        geneid <- ensemblAnnotations.genes[hgnc_symbol==genevec[g]]$ensembl_gene_id
+        tmp_range <- exonsByGene[geneid][[1]]
+        seq_pos <- min(start(tmp_range)):max(end(tmp_range))
+        seqChar <- geneSeq[[match(as.character(unique(seqnames(tmp_range))), listNames)]][seq_pos]
+        if(as.character(unique(strand(tmp_range))) == "-"){
+            seqChar <- reverseComplement(seqChar)
+        }
+        as.character(seqChar)
+    })), collapse = "")    
+}))
+
+
+sink("fusionGene.fasta")
+noprint <- lapply(seq_along(fusionGeneNames.toPrint), function(s){
+  cat(paste0(">",fusionGeneNames.toPrint[s]), " \n")
+  cat(fusionGeneSequence[s]," \n")
+})
+sink()
+
+# scaffoldNames = names(geneSeq)
+# scaffoldNames = gsub("\\s.*", "", scaffoldNames, perl = TRUE)
+# geneSeq2 = geneSeq[match(jaffa_results_table$contig, scaffoldNames)]
+# sink("fusionGene.fasta")
+# noprint <- lapply(seq_along(geneSeq2), function(s){
+#   cat(paste0(">",jaffa_results_table$`fusion genes`[s]), " \n")
+#   cat(as.character(geneSeq2[s])," \n")
+# })
+# sink()
