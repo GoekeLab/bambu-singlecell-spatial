@@ -125,8 +125,7 @@ process bambu{
 	output: 
     tuple val ('combined'), path ('*readClassFile.rds'), path ('*quantData.rds')
 	path ('*extended_annotations.rds') 
-    path ('*extended_annotations_NDR1.rds') 
-    path ('*extended_annotations_NDR1.gtf') 
+    path ('*.gtf')
     path ('*.mtx')
     path ('*.tsv')
     path ('*_clusters.rds')
@@ -171,10 +170,6 @@ process bambu{
         extendedAnno = bambu(reads = readClassFile, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE, NDR = $NDR)
     }
     saveRDS(extendedAnno, paste0(runName, "_extended_annotations.rds"))
-    extendedAnno_NDR1 = bambu(reads = readClassFile, annotations = annotations, genome = "$genome", NDR = 1, ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
-    saveRDS(extendedAnno_NDR1,paste0(runName, "_extended_annotations_NDR1.rds"))
-    writeToGTF(extendedAnno_NDR1, paste0(runName, "extended_annotations_NDR1.gtf"))
-    rm(extendedAnno_NDR1)
     rm(annotations)
     se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = $whitelist)
     saveRDS(se, paste0(runName, "_quantData.rds"))
@@ -220,8 +215,7 @@ process bambu_EM{
     input:
     tuple val(sample),path(readClassFile), path(quantData)
     path(extendedAnno)
-    path(extendedAnno_NDR1)
-    path(extended_annotations_NDR1_gtf) 
+    path(gtf)
     path(counts)
     path(metadata)
     path(clusters)
@@ -232,7 +226,6 @@ process bambu_EM{
     output:
     path ('*.rds')
     path ('*.mtx')
-    path ('*.gtf')
     path ('*.tsv')
 
     script:
@@ -266,13 +259,14 @@ process bambu_EM{
                 clusters = clusters)
 
     saveRDS(se, paste0(runName, "_se.rds"))
-    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_EM_"))
+    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_EM_"),outputExtendedAnno = FALSE, 
+        outputAll = FALSE, outputBambuModels = FALSE, outputNovelOnly = FALSE)
     """
 
 }
 
 process fusion_mode_JAFFAL{
-    publishDir "$params.outdir", mode: 'copy', pattern: '*.fa'
+    publishDir "$params.outdir", mode: 'copy'
     container ''
 
     input:
@@ -281,7 +275,6 @@ process fusion_mode_JAFFAL{
 
     output:
     path('jaffa_results.csv')
-    path('*/*fusions.fa'), emit: fusion_fasta
 
     script:
     """
@@ -302,17 +295,17 @@ process fusion_mode_JAFFAL{
 }
 
 process fusion_mode_extract{
-    publishDir "$params.outdir", mode: 'copy', pattern: '*.gtf'
+    publishDir "$params.outdir", mode: 'copy'
 
     input:
     path(jaffa_results)
-    path(fusion_fasta)
     path(bam)
     path(genome)
     path(annotation)
     val(jaffal_ref_dir)
 
     output:
+    path('fusionGene.fasta')
     path('sample1_fusion.bam')
     path('fusion.gtf')
 
@@ -321,7 +314,7 @@ process fusion_mode_extract{
     Rscript ${projectDir}/fusion_detection.R $genome $annotation $jaffa_results ${projectDir}
 
     samtools view -bhL fusion.bed $bam | samtools fastq - > sample1_fusion.fastq
-    minimap2 -ax splice -G2200k -N 5 --sam-hit-only -t $params.ncore $fusion_fasta sample1_fusion.fastq | samtools sort -O bam -o sample1_fusion.bam -
+    minimap2 -ax splice -G2200k -N 5 --sam-hit-only -t $params.ncore fusionGene.fasta sample1_fusion.fastq | samtools sort -O bam -o sample1_fusion.bam -
     samtools index sample1_fusion.bam 
     """
 }
@@ -337,6 +330,8 @@ process fusion_mode_bambu{
     tuple val(cleanReads), val(keepChimericReads), val(deduplicateUMIs)
 
     output:
+    path('*_fusion_readClassFile.rds')
+    path('*_fusion_extended_annotations_NDR1.rds')
     path('*fusion_quantData.rds')
 
     script:
@@ -356,7 +351,6 @@ process fusion_mode_bambu{
     saveRDS(readClassFile, paste0("_fusion_readClassFile.rds"))
     extendedAnno_NDR1 = bambu(reads = readClassFile, annotations = annotations, genome = "$fusionGeneScaffolds", NDR = 1, fusionMode = TRUE, ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
     saveRDS(extendedAnno_NDR1,paste0("_fusion_extended_annotations_NDR1.rds"))
-    writeToGTF(extendedAnno_NDR1, paste0("fusion_extended_annotations_NDR1.gtf"))
     rm(annotations)
     se = bambu(reads = readClassFile, annotations = extendedAnno_NDR1, genome = "$fusionGeneScaffolds", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE)
     saveRDS(se, paste0("_fusion_quantData.rds"))
@@ -418,7 +412,7 @@ workflow {
         if (params.fusionMode) {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
             fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
-            fusion_mode_bambu_out_ch = fusion_mode_bambu(fusion_mode_JAFFAL_out_ch.fusion_fasta, fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
+            fusion_mode_bambu_out_ch = fusion_mode_bambu(fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
         }
      }
     else{ //When starting from bam
