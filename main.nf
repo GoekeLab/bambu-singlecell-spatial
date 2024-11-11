@@ -244,6 +244,8 @@ process bambu_EM{
     extendedAnno <- readRDS("$extendedAnno")
     quantDatas = readRDS("$quantData")
     clusters = readRDS("$clusters")
+    degBias = TRUE
+    if(is.null(clusters)){degBias = FALSE}
 
     se = bambu( reads = "test.rds", 
                 annotations = extendedAnno, 
@@ -255,7 +257,7 @@ process bambu_EM{
                 quant = TRUE, 
                 demultiplexed = TRUE, 
                 verbose = FALSE, 
-                opt.em = list(degradationBias = FALSE), 
+                opt.em = list(degradationBias = degBias), 
                 clusters = clusters)
 
     saveRDS(se, paste0(runName, "_se.rds"))
@@ -290,7 +292,6 @@ process fusion_mode_JAFFAL{
     /JAFFA/JAFFAL.groovy            \
     \$fastq2
 
-    #/home/users/astar/gis/simandred/scratch/singleCell/runTest/JAFFA.sif
     """
 }
 
@@ -355,17 +356,64 @@ process fusion_mode_bambu{
     se = bambu(reads = readClassFile, annotations = extendedAnno_NDR1, genome = "$fusionGeneScaffolds", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE)
     saveRDS(se, paste0("_fusion_quantData.rds"))
     for(se.x in se){
-        writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
+        writeBambuOutput(se.x, '.', prefix = paste0(metadata(se.x)\$sampleNames, "fusion"))
     }
-
-    #se.fusion = bambu(reads = "$bam", annotations = annotations, genome = "$fusionGeneScaffolds", 
-    #                    ncore = $params.ncore, discovery = TRUE, quant = FALSE, 
-    #                    demultiplexed = TRUE, verbose = FALSE, assignDist = TRUE, 
-    #                    lowMemory = TRUE, yieldSize = 10000000, sampleNames = "fusion", 
-    #                    cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs),
-    #                    fusionMode = TRUE, NDR = 1)
-    #saveRDS(se.fusion, paste0("fusion", "_quantData.rds"))
     """
+}
+
+process fusion_mode_bambu_EM{
+
+	publishDir "$params.outdir", mode: 'copy'
+
+	cpus params.ncore
+    maxForks 1
+
+    input:
+    tuple path(readClassFile), val(extendedAnno), path(quantData)
+    path(genome)
+    val(bambuPath)
+    path(clusters)
+
+    output:
+    path ('*.rds')
+    path ('*.mtx')
+    path ('*.tsv')
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+    #.libPaths("/usr/local/lib/R/site-library")
+    library(devtools)
+    if("$bambuPath" == "bambu") {
+        load_all("/mnt/software/bambu")
+    } else {
+        load_all("$bambuPath")
+    }
+    
+    extendedAnno <- readRDS("$extendedAnno")
+    quantDatas = readRDS("$quantData")
+    clusters = readRDS("$clusters")
+    degBias = TRUE
+    if(is.null(clusters)){degBias = FALSE}
+
+    se = bambu( reads = "test.rds", 
+                annotations = extendedAnno, 
+                genome = "$genome", 
+                quantData = quantDatas, 
+                assignDist = FALSE, 
+                ncore = $params.ncore, 
+                discovery = FALSE, 
+                quant = TRUE, 
+                demultiplexed = TRUE, 
+                verbose = FALSE, 
+                opt.em = list(degradationBias = degBias), 
+                clusters = clusters)
+
+    saveRDS(se, paste0(runName, "_fusion_se.rds"))
+    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_fusion_EM_"),outputExtendedAnno = FALSE, 
+        outputAll = FALSE, outputBambuModels = FALSE, outputNovelOnly = FALSE)
+    """
+
 }
 
 // This is the workflow to execute the process 
@@ -413,6 +461,7 @@ workflow {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
             fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
             fusion_mode_bambu_out_ch = fusion_mode_bambu(fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
+            fusion_mode_bambu_EM(fusion_mode_extract_out_ch, "$params.genome", "$params.bambuPath", clusters2)
         }
      }
     else{ //When starting from bam
