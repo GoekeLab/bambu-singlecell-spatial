@@ -128,7 +128,7 @@ process bambu{
     path ('*.gtf')
     path ('*.mtx')
     path ('*.tsv')
-    path ('*_clusters.rds')
+    path ('*_clusters.rds'), emit: clusters
 
 	script:
 	""" 
@@ -369,7 +369,9 @@ process fusion_mode_bambu_EM{
     maxForks 1
 
     input:
-    tuple path(readClassFile), val(extendedAnno), path(quantData)
+    path(readClassFile)
+    path(extendedAnno)
+    path(quantData)
     path(genome)
     val(bambuPath)
     path(clusters)
@@ -394,8 +396,14 @@ process fusion_mode_bambu_EM{
     quantDatas = readRDS("$quantData")
     clusters = readRDS("$clusters")
     degBias = TRUE
-    if(is.null(clusters)){degBias = FALSE}
-
+    if(is.null(clusters)){
+        degBias = FALSE
+    } else{
+        sampleID = gsub("[AGCT]*\$", "", clusters[[1]][[1]][1], perl = TRUE)
+        fusionID = paste0(colData(quantDatas[[1]])\$sampleName[1], "_")
+        clusters[[1]] = gsub(sampleID, fusionID, clusters[[1]])
+    }
+    print(clusters)
     se = bambu( reads = "test.rds", 
                 annotations = extendedAnno, 
                 genome = "$genome", 
@@ -409,8 +417,8 @@ process fusion_mode_bambu_EM{
                 opt.em = list(degradationBias = degBias), 
                 clusters = clusters)
 
-    saveRDS(se, paste0(runName, "_fusion_se.rds"))
-    writeBambuOutput(se, path = ".", prefix = paste0(runName, "_fusion_EM_"),outputExtendedAnno = FALSE, 
+    saveRDS(se, paste0("_fusion_se.rds"))
+    writeBambuOutput(se, path = ".", prefix = paste0("_fusion_EM_"), outputExtendedAnno = FALSE, 
         outputAll = FALSE, outputBambuModels = FALSE, outputNovelOnly = FALSE)
     """
 
@@ -461,7 +469,6 @@ workflow {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
             fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
             fusion_mode_bambu_out_ch = fusion_mode_bambu(fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
-            fusion_mode_bambu_EM(fusion_mode_extract_out_ch, "$params.genome", "$params.bambuPath", clusters2)
         }
      }
     else{ //When starting from bam
@@ -499,7 +506,10 @@ workflow {
     }
     bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution")
     if(!params.noEM){
-        bambuEM_out_ch = bambu_EM(bambu_out_ch, "$params.genome", "$params.bambuPath", clusters2)
+        bambuEM_out_ch = bambu_EM(bambu_out_ch, "$params.genome", "$params.bambuPath", bambu_out_ch.clusters)
+    }
+    if (params.fusionMode && !params.noEM && params.reads) {
+        fusion_mode_bambu_EM(fusion_mode_bambu_out_ch, "$params.genome", "$params.bambuPath", bambu_out_ch.clusters)
     }
 }
 
