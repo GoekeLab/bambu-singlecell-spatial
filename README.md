@@ -172,7 +172,7 @@ You may then use these count matrices for downstream analysis using tools like [
 
 **--spatial** - a flag to tell the pipeline this is spatial data. If set, the --whitelist needs to also be set and additionally contain the X and Y coordinates for each barcode in two additional columns (tsv with no header). See #Spatial Analysis below for more details
 
-**--[NYI]fusionMode** - Will run JAFFAL to identify fusion breakpoints and then bambu to identify and quantify fusion transcripts at the single-cell level
+**--fusionMode** - Will run JAFFAL to identify fusion breakpoints and then bambu to identify and quantify fusion transcripts at the single-cell level
 
 **--flexiplex_e** [INT] - the edit distance used by flexiplex for barcode identification (default: 1)
 
@@ -193,15 +193,11 @@ This changes the stringency of the alignment based on minimap2 recommendations.
 | TAGTGGTTCCTTTCTC | cluster1 |
 | TCTGGAAAGGTGACCA | cluster2 |
 
-**--[UNSTABLE]lowMemory** - At the cost of runtime, but reducing the max memory the pipeline will use at one time, the pipeline will perform the bambu steps for each input file seperately. *Important* - because read class construction is done seperately using this mode, this will impact the transcripts that are discovered and the quantification results slightly due to small stocastic differences in junction error correction. 
+**--processByBam** [TRUE/FALSE. default: FALSE] - At the cost of runtime, but reducing the max memory the pipeline will use at one time, the pipeline will perform the bambu steps for each input file seperately. *Important* - because read class construction is done seperately using this mode, this will impact the transcripts that are discovered and the quantification results slightly due to small stocastic differences in junction error correction. 
 
-**--[NYI]BambuDiscoveryParameters** [STRING] - A comma seperated sting containing optional parameters for bambu's transcript discovery opt.discovery argument e.g --BambuDiscoveryParameters 'remove.subsetTx = FALSE, min.readFractionByGene = 0'
-
-**--[NYI]BambuQuantifyParameters** [STRING] - A comma seperated sting containing optional parameters for bambu's transcript quantification opt.em argument e.g --BambuQuantifyParameters 'maxiter = 20000, conv = 0.0002'
+**--processByChromosome** [TRUE/FALSE. default: TRUE]- At the cost of runtime, but reducing the max memory the pipeline will use at one time, the pipeline will perform the bambu steps for each chromosome seperately seperately. *Important* - because read class construction is done seperately using this mode, this will impact the transcripts that are discovered and the quantification results slightly due to small stocastic differences in junction error correction. 
 
 **--ncore** [INT] -  the number of cores to use in the run (default: `12`)
-
-**--[NYI]keepChimericReads** [TRUE/FALSE] - determines if chimeric reads detected by flexiplex will be kept. Setting this to false will reduce the number of reads used in the analysis, but speed up the pipeline (default: 'true')
 
 **--cleanReads** [TRUE/FALSE] - if true, only the first supplimentary/primary alignment closest to the barcode is kept for analysis for each read name (default: 'true'). This reduces the liklihood of chimeric reads with undetected barcodes from leading to alignments being incorrectly assigned, however it means only the first alignment of fusion transcripts will be kept.
 
@@ -231,7 +227,17 @@ Example (**Headers are descriptive only, there should be no headers in the input
 | AAACAATCTACTAGCA | 44 | 4 |
 
 ### **Fusion Transcript Analysis** ##
-TBD
+Two extra parameters are required when running fusion mode
+**--fusionMode**
+**--jaffal_ref_dir** [PATH] - This needs to be a path to a JAFFA compatible reference. See JAFFAL documentation (https://github.com/Oshlack/JAFFA/wiki/FAQandTroubleshooting#how-can-i-run-jaffa-with-hg19-or-mm10)
+When --fusionMode is provided to Bambu-Pipe, three additional steps are included in the pipeline. The first runs JAFFAL identifying the fusion genes breakpoint regions in the sample from the raw fastq files. The next step uses the identified breakpoints to generate artificial fusion scaffolds, placing the fused genes next to each other on their own scaffold. The final step runs Bambu-Clump using the fusion scaffolds and annotations, and will use the clustering provided by --clusters. 
+
+Outputs:
+
+Fusion mode will produce the same outputs alongside the regular steps with the prefix of _fusion and _fusion_EM. The following fusion specific additional outputs are provided.
+fusionGene.fasta - These are the fusion scaffolds which the reads are aligned too
+fusion.gtf - These are the annotations used by bambu containing the two fused genes, which map to the fusionGene.fasta
+jaffa_results.csv - These are the results from JAFFAL describing the fusion breakpoints used to generate the above files.
 
 ### **Additional Information**
 

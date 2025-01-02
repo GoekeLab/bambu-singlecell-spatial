@@ -6,9 +6,11 @@ params.chemistry = "custom" //"10x3v3" "10x3v2" "10x5v2" "10x5v3"
 params.technology = 'ONT' //"ONT" "PacBio"
 params.whitelist = "NULL"
 params.bambuPath = "bambu"
-params.lowMemory = "FALSE"
+params.processByBam = "FALSE"
+params.processByChomosome = "TRUE"
 params.ncore = 4
 params.spatial = null
+params.fusionMode = null
 
 params.NDR = "NULL"
 params.cleanReads = "TRUE"
@@ -165,7 +167,11 @@ process bambu{
 	annotations <- prepareAnnotations("$annotation")
 
 	# Transcript discovery and generate readGrgList for each cell
-    readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, verbose = TRUE, assignDist = FALSE, lowMemory = as.logical("$params.lowMemory"), yieldSize = 10000000, sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
+    readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", 
+        ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, 
+        verbose = TRUE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
+        processByBam = as.logical("$params.processByBam"), yieldSize = 10000000, 
+        sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
     saveRDS(readClassFile, paste0(runName, "_readClassFile.rds"))
     if(isFALSE($NDR)){
         extendedAnno = bambu(reads = readClassFile, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
@@ -177,7 +183,7 @@ process bambu{
     se = bambu(reads = readClassFile, annotations = extendedAnno, genome = "$genome", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE, spatial = spatial)
     saveRDS(se, paste0(runName, "_quantData.rds"))
     for(se.x in se){
-        if(as.logical("$params.lowMemory")){
+        if(as.logical("$params.processByBam")){
             writeBambuOutput(se.x, '.', prefix = metadata(se.x)\$sampleNames)
         } else{
             writeBambuOutput(se.x, '.', prefix = "combined_")
@@ -332,6 +338,7 @@ process fusion_mode_bambu{
     publishDir "$params.outdir", mode: 'copy'
 
     input:
+    val(id)
     path(fusionGeneScaffolds)
     path(bam)
     path(fusion_gtf)
@@ -354,14 +361,30 @@ process fusion_mode_bambu{
         load_all("$bambuPath")
     }
 
+    ids = "$id"
+    ids = gsub("[][]","", gsub(' ','', ids))
+    ids = unlist(strsplit(ids, ','))
+    if(length(ids)>1){runName = "combined_"
+    }else{runName = paste0(ids, "_")}
+
 	annotations <- prepareAnnotations("$fusion_gtf")
 
-    readClassFile = bambu(reads = "$bam", annotations = annotations, genome = "$fusionGeneScaffolds", fusionMode = TRUE, ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = TRUE, assignDist = FALSE, lowMemory = as.logical("$params.lowMemory"), yieldSize = 10000000, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
+    readClassFile = bambu(reads = "$bam", annotations = annotations, genome = "$fusionGeneScaffolds", 
+        fusionMode = TRUE, ncore = $params.ncore, discovery = FALSE, quant = FALSE, 
+        demultiplexed = TRUE, verbose = TRUE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
+        processByBam = as.logical("$params.processByBam"), yieldSize = 10000000, sampleNames = ids,
+        cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
     saveRDS(readClassFile, paste0("_fusion_readClassFile.rds"))
-    extendedAnno_NDR1 = bambu(reads = readClassFile, annotations = annotations, genome = "$fusionGeneScaffolds", NDR = 1, fusionMode = TRUE, ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
+    extendedAnno_NDR1 = bambu(reads = readClassFile, annotations = annotations, 
+        genome = "$fusionGeneScaffolds", NDR = 0.999, fusionMode = TRUE, 
+        ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, 
+        verbose = FALSE, assignDist = FALSE)
     saveRDS(extendedAnno_NDR1,paste0("_fusion_extended_annotations_NDR1.rds"))
     rm(annotations)
-    se = bambu(reads = readClassFile, annotations = extendedAnno_NDR1, genome = "$fusionGeneScaffolds", ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), assignDist = TRUE)
+    se = bambu(reads = readClassFile, annotations = extendedAnno_NDR1, 
+        genome = "$fusionGeneScaffolds", ncore = $params.ncore, discovery = FALSE, 
+        quant = FALSE, demultiplexed = TRUE, verbose = FALSE, opt.em = list(degradationBias = FALSE), 
+        assignDist = TRUE)
     saveRDS(se, paste0("_fusion_quantData.rds"))
     for(se.x in se){
         writeBambuOutput(se.x, '.', prefix = paste0(metadata(se.x)\$sampleNames, "fusion"))
@@ -476,7 +499,7 @@ workflow {
         if (params.fusionMode) {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
             fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
-            fusion_mode_bambu_out_ch = fusion_mode_bambu(fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
+            fusion_mode_bambu_out_ch = fusion_mode_bambu(sampleIds, fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
         }
      }
     else{ //When starting from bam
