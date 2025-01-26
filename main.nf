@@ -171,7 +171,7 @@ process bambu{
         ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, 
         verbose = TRUE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
         processByBam = as.logical("$params.processByBam"), yieldSize = 10000000, 
-        sampleNames = ids, cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
+        sampleNames = ids, cleanReads = as.logical("$cleanReads"), dedupUMI = as.logical("$deduplicateUMIs)")
     saveRDS(readClassFile, paste0(runName, "_readClassFile.rds"))
     if(isFALSE($NDR)){
         extendedAnno = bambu(reads = readClassFile, annotations = annotations, genome = "$genome", ncore = $params.ncore, discovery = TRUE, quant = FALSE, demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE)
