@@ -169,7 +169,7 @@ process bambu{
 	# Transcript discovery and generate readGrgList for each cell
     readClassFile = bambu(reads = samples, annotations = annotations, genome = "$genome", 
         ncore = $params.ncore, discovery = FALSE, quant = FALSE, demultiplexed = barcode_maps, 
-        verbose = TRUE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
+        verbose = FALSE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
         processByBam = as.logical("$params.processByBam"), yieldSize = 10000000, 
         sampleNames = ids, cleanReads = as.logical("$cleanReads"), dedupUMI = as.logical("$deduplicateUMIs"))
     saveRDS(readClassFile, paste0(runName, "_readClassFile.rds"))
@@ -371,7 +371,7 @@ process fusion_mode_bambu{
 
     readClassFile = bambu(reads = "$bam", annotations = annotations, genome = "$fusionGeneScaffolds", 
         fusionMode = TRUE, ncore = $params.ncore, discovery = FALSE, quant = FALSE, 
-        demultiplexed = TRUE, verbose = TRUE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
+        demultiplexed = TRUE, verbose = FALSE, assignDist = FALSE, processByChromosome = as.logical("$params.processByChomosome"), 
         processByBam = as.logical("$params.processByBam"), yieldSize = 10000000, sampleNames = ids,
         cleanReads = as.logical($cleanReads), dedupUMI = as.logical($deduplicateUMIs))
     saveRDS(readClassFile, paste0("_fusion_readClassFile.rds"))
