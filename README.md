@@ -30,7 +30,7 @@ nextflow run GoekeLab/bambu-SingleCell-Spatial \
   --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
   --chemistry 10x5v2 \
   --ncore 16 --outdir output \
-  -with-singularity lingminhao/bambusc:beta
+  -with-singularity lingminhao/bambusc:beta1.2
 ``` 
 
 **Running multiple samples**
@@ -41,7 +41,7 @@ nextflow run GoekeLab/bambu-SingleCell-Spatial \
   --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
   --chemistry 10x5v2 \ #can be provided in the samplesheet instead
   --ncore 16 --outdir output \
-  -with-singularity lingminhao/bambusc:beta
+  -with-singularity lingminhao/bambusc:beta1.2
 ``` 
 examples/samplesheet_basic.csv 
 | sample            | fastq     |
@@ -56,7 +56,7 @@ nextflow run GoekeLab/bambu-SingleCell-Spatial \
   --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
   --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \ 
   --ncore 16 --outdir output \
-  -with-singularity lingminhao/bambusc:beta
+  -with-singularity lingminhao/bambusc:beta1.2
 ``` 
 
 You can run the code above with your own dataset by replacing the arguments accordingly. The pipeline works on both the **long read sequencing** platform Oxford Nanopore Technologies (ONT) and PacBio at the single-cell and spatial level. The description for each argument is shown below: 
