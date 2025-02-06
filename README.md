@@ -24,7 +24,7 @@ Note that in the examples that while we do not provide a whitelist paramter, it 
 
 **Running a single sample**
 ``` 
-nextflow run GoekeLab/bambu-SingleCell-Spatial \
+nextflow run GoekeLab/bambu-singlecell-spatial \
   --reads $PWD/examples/reads_chr9_1_1000000.fastq.gz \
   --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
   --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
@@ -35,7 +35,7 @@ nextflow run GoekeLab/bambu-SingleCell-Spatial \
 
 **Running multiple samples**
 ``` 
-nextflow run GoekeLab/bambu-SingleCell-Spatial \
+nextflow run GoekeLab/bambu-singlecell-spatial \
   --reads $PWD/examples/samplesheet_basic.csv \   # See the arguments section for format specifications
   --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
   --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \
@@ -51,7 +51,7 @@ examples/samplesheet_basic.csv
 
 **Running from a demultiplexed bam (skip demultiplexing and alignment)**
 ``` 
-nextflow run GoekeLab/bambu-SingleCell-Spatial \
+nextflow run GoekeLab/bambu-singlecell-spatial \
   --bams $PWD/examples/demultiplexed.bam \   # See the arguments section for demutiplex format requirements
   --genome $PWD/examples/Homo_sapiens.GRCh38.dna_sm.primary_assembly_chr9_1_1000000.fa \
   --annotation $PWD/examples/Homo_sapiens.GRCh38.91_chr9_1_1000000.gtf \ 
