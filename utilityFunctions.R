@@ -12,7 +12,7 @@ clusterCells = function(counts, resolution = 0.8, dim = 15){
   cellMix <- ScaleData(cellMix, features = all.genes)
   npcs = ifelse(ncol(counts)>50, 50, ncol(counts)-1)
   cellMix <- RunPCA(cellMix, features = VariableFeatures(object = cellMix), npcs = npcs)
-  dim = ifelse(dim >= dim(cellMix@reductions$pca)[2], dim, dim(cellMix@reductions$pca)[2])
+  dim = ifelse(dim >= dim(cellMix@reductions$pca)[2], dim(cellMix@reductions$pca)[2], dim)
   cellMix <- FindNeighbors(cellMix, dims = 1:dim)
   cellMix <- FindClusters(cellMix, resolution = resolution)
   cellMix <- RunUMAP(cellMix, dims = 1:dim)
