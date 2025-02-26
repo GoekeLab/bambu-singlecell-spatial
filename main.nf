@@ -32,6 +32,14 @@ params.flexiplex_e = 1
 
 params.outdir = "output" 
 
+params.utility = "${projectDir}/utilityFunctions.R"
+params.fusion = "${projectDir}/fusion_detection.R"
+params.fusionhelper = "${projectDir}/fusion_detection_functions.R"
+
+Channel.fromPath(params.utility).set { utility_ch }
+Channel.fromPath(params.fusion).set { fusion_ch }
+Channel.fromPath(params.fusionhelper).set { fusionhelper_ch }
+
 process flexiplex{ 
 
 	publishDir "$params.outdir", mode: 'copy' 
@@ -42,7 +50,7 @@ process flexiplex{
 	tuple val(sample), path(fastq), val(chemistry), val(technology), val(whitelist)
 
 	output:
-    tuple val(sample), path("new_reads.fastq.gz"), val(chemistry), val(technology), emit: fastq
+    tuple val(sample), path("new_reads.fastq"), val(chemistry), val(technology), emit: fastq
 
 	script:
 	"""	
@@ -67,8 +75,6 @@ process flexiplex{
         awk '{print \$1}' whitelist.txt my_barcode_list.txt | sort | uniq -d > my_filtered_barcode_list.txt
 	fi
     flexiplex -p $params.ncore -k my_filtered_barcode_list.txt \$chem -f 8 -e $params.flexiplex_e reads.fastq > new_reads.fastq
-	gzip new_reads.fastq
-    rm reads.fastq
     """
 }
 
@@ -122,7 +128,7 @@ process bambu{
     val(whitelist)
     val(clusters)
     val(resolution)
-    
+    file utility
 
 	output: 
     tuple val ('combined'), path ('*readClassFile.rds'), path ('*quantData.rds')
@@ -197,7 +203,7 @@ process bambu{
     if("$clusters" == "auto"){
         clusters = list()
         cellMixs = list()
-        source("${projectDir}/utilityFunctions.R")
+        source("$utility")
         for(quantData in se){
             quantData.gene = transcriptToGeneExpression(quantData)
             for(sample in unique(colData(quantData)\$sampleName)){
@@ -294,10 +300,13 @@ process fusion_mode_JAFFAL{
 
     script:
     """
-    fastaPath=\$(dirname $fastq)
-    echo \$fastaPath
-    fastaPath=\$(realpath \$fastaPath)
+    # Convert the FASTQ file path to an absolute path
     fastq2=\$(realpath $fastq)
+    echo "Absolute FASTQ file path: \$fastq2"
+
+    # Get the absolute path of folder to bind
+    fastaPath=\$(dirname \$fastq2)
+
     apptainer run                             \
     -B $jaffal_ref_dir:/ref                      \
     -B \$fastaPath                      \
@@ -318,6 +327,8 @@ process fusion_mode_extract{
     path(genome)
     path(annotation)
     val(jaffal_ref_dir)
+    file fusion
+    file fusionhelper
 
     output:
     path('fusionGene.fasta')
@@ -326,7 +337,9 @@ process fusion_mode_extract{
 
     script:
     """
-    Rscript ${projectDir}/fusion_detection.R $genome $annotation $jaffa_results ${projectDir}
+    echo "Helper file path: $fusionhelper"
+
+    Rscript $fusion $genome $annotation $jaffa_results $fusionhelper
 
     samtools view -bhL fusion.bed $bam | samtools fastq - > sample1_fusion.fastq
     minimap2 -ax splice -G2200k -N 5 --sam-hit-only -t $params.ncore fusionGene.fasta sample1_fusion.fastq | samtools sort -O bam -o sample1_fusion.bam -
@@ -498,7 +511,7 @@ workflow {
         bamsFiles = minimap_out_ch.collect{it[1]}
         if (params.fusionMode) {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
-            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
+            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir", fusion_ch, fusionhelper_ch)
             fusion_mode_bambu_out_ch = fusion_mode_bambu(sampleIds, fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
         }
      }
@@ -538,7 +551,7 @@ workflow {
     if(!params.spatial){
         whiteLists2 = "FALSE" 
     }
-    bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution")
+    bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution", utility_ch)
     if(!params.noEM){
         bambuEM_out_ch = bambu_EM(bambu_out_ch, "$params.genome", "$params.bambuPath", bambu_out_ch.clusters)
     }

@@ -6,8 +6,9 @@ args <- commandArgs(trailingOnly = TRUE)
 genome = args[[1]]
 annotations = args[[2]]
 jaffa_results = args[[3]]
-sourceDir = args[[4]]
-source(file.path(sourceDir,"fusion_detection_functions.R"))
+# sourceDir = args[[4]]
+# source(file.path(sourceDir,"fusion_detection_functions.R"))
+source(args[[4]])
 
 cat('Load transcript sequence information')
 geneSeq <- readDNAStringSet(file=genome)
