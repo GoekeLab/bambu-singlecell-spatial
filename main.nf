@@ -147,7 +147,7 @@ process bambu{
     if(length(ids)>1){runName = "combined_"
     }else{runName = paste0(ids, "_")}
 
-    if(!isTRUE($barcode_map)){
+    if(file.exists("$barcode_map")){
         x = gsub("[][]","",gsub(' ','', "$barcode_map"))
         barcode_maps = unlist(strsplit(x, ','))
     } else {
