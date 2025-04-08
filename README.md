@@ -97,7 +97,7 @@ Multiple Sample with different parameters example: (examples/samplesheet_custom_
 
 2. The barcode is located in the BC tag in the bam file, and the UMI is located in the UG tag
 
-3. The --barcode_map argument is provided in (or as a column in the samplesheet) to a .tsv or .csv with three columns. All reads not present in the table will be discarded from the analysis. The UMI column is optional if you do not need UMI deduplication or do not have UMIs in your data.
+3. The --barcodeMap argument is provided in (or as a column in the samplesheet) to a .tsv or .csv with three columns. All reads not present in the table will be discarded from the analysis. The UMI column is optional if you do not need UMI deduplication or do not have UMIs in your data.
 
 Example: NO HEADER IN FILE (see examples/barcode_map_example.csv)
 
