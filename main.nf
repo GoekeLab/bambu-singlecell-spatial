@@ -80,7 +80,7 @@ process minimap{
 	
 	input: 
 	tuple val(sample),path(newfastq), val(chemistry), val(technology)
-	path(genome)
+	path genome
 
 	output: 
 	tuple val(sample), path ('*.demultiplexed.bam') 
@@ -461,8 +461,18 @@ process fusion_mode_bambu_EM{
 
 // This is the workflow to execute the process 
 workflow { 
-	ch_input_genome =  Channel.fromPath(params.genome, checkIfExists: true)
-	ch_input_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)   
+	if (params.genome) {
+            ch_genome =  Channel.fromPath(params.genome, checkIfExists: true)
+    } else {
+            exit 1, "Please specify a valid genome fasta file"
+    }
+	if (params.annotation) {
+            ch_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)
+    } else {
+            exit 1, "Please specify a valid annotation file"
+    }
+	
+	   
 	if (params.reads) {
         //User can provide either 1 .fastq file or a .csv with .fastq files
         fastq = file(params.reads, checkIfExists:true)
@@ -479,7 +489,7 @@ workflow {
                                         row.containsKey("barcode_map") ? row.barcode_map :  params.barcodeMap,
                                         row.containsKey("clusters") ? row.whitelist : params.clusters) }        
             flexiplex_out_ch = flexiplex(readsChannel.map{it[0..4]})
-            minimap_out_ch = minimap(flexiplex_out_ch, ch_input_genome)
+            minimap_out_ch = minimap(flexiplex_out_ch, ch_genome)
             barcodeMaps = readsChannel.collect{it[6]}
             barcodeMaps2 = barcodeMaps.map { it == null ? it : params.barcodeMap }
             whitelists = readsChannel.collect{it[5]}
@@ -494,7 +504,7 @@ workflow {
             readsChannel = readsChannel
                 .map {tuple("Bambu", it, params.chemistry, params.technology, params.whitelist)}
             flexiplex_out_ch = flexiplex(readsChannel)
-            minimap_out_ch = minimap(flexiplex_out_ch, ch_input_genome)
+            minimap_out_ch = minimap(flexiplex_out_ch, ch_genome)
             barcodeMaps2 = params.barcodeMap
             whiteLists2 = params.whitelist
             clusters2 = params.clusters
@@ -504,7 +514,7 @@ workflow {
         bamsFiles = minimap_out_ch.collect{it[1]}
         if (params.fusionMode) {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
-            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), ch_input_genome, ch_input_annotation, "$params.jaffal_ref_dir")
+            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), ch_genome, ch_input_annotation, "$params.jaffal_ref_dir")
             fusion_mode_bambu_out_ch = fusion_mode_bambu(sampleIds, fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
         }
      }
@@ -545,12 +555,12 @@ workflow {
         whiteLists2 = "FALSE" 
     }
 	
-    bambu_out_ch = bambu(sampleIds, bamsFiles, ch_input_genome, ch_input_annotation, "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution")
+    bambu_out_ch = bambu(sampleIds, bamsFiles, ch_genome, ch_annotation, "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution")
     if(!params.noEM){
-        bambuEM_out_ch = bambu_EM(bambu_out_ch, ch_input_genome, "$params.bambuPath", bambu_out_ch.clusters)
+        bambuEM_out_ch = bambu_EM(bambu_out_ch, ch_genome, "$params.bambuPath", bambu_out_ch.clusters)
     }
     if (params.fusionMode && !params.noEM && params.reads) {
-        fusion_mode_bambu_EM(fusion_mode_bambu_out_ch, ch_input_genome, "$params.bambuPath", bambu_out_ch.clusters)
+        fusion_mode_bambu_EM(fusion_mode_bambu_out_ch, ch_genome, "$params.bambuPath", bambu_out_ch.clusters)
     }
 }
 
