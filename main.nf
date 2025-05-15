@@ -462,6 +462,7 @@ process fusion_mode_bambu_EM{
 // This is the workflow to execute the process 
 workflow { 
 	ch_input_genome =  Channel.fromPath(params.genome, checkIfExists: true)
+	println(ch_input_genome)
 	ch_input_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)   
 	if (params.reads) {
         //User can provide either 1 .fastq file or a .csv with .fastq files
