@@ -136,7 +136,9 @@ process bambu{
 	""" 
 	#!/usr/bin/env Rscript
     #.libPaths("/usr/local/lib/R/site-library")
+    
 
+	
     samples = "$bam"
     samples = gsub("[][]","", gsub(' ','', samples))
     samples = unlist(strsplit(samples, ','))
@@ -194,10 +196,12 @@ process bambu{
     #write(runName, "runName.txt")
 
     #if no clustering provided, automatically cluster
+	path <- Sys.getenv("PATH") |> strsplit(":")
+    bin_path <- tail(path[[1]], n=1)
     if("$clusters" == "auto"){
         clusters = list()
         cellMixs = list()
-        source("${projectDir}/utilityFunctions.R")
+        source(file.path(bin_path,"/utilityFunctions.R"))
         for(quantData in se){
             quantData.gene = transcriptToGeneExpression(quantData)
             for(sample in unique(colData(quantData)\$sampleName)){
@@ -326,7 +330,7 @@ process fusion_mode_extract{
 
     script:
     """
-    Rscript ${projectDir}/fusion_detection.R $genome $annotation $jaffa_results ${projectDir}
+    fusion_detection.R $genome $annotation $jaffa_results 
 
     samtools view -bhL fusion.bed $bam | samtools fastq - > sample1_fusion.fastq
     minimap2 -ax splice -G2200k -N 5 --sam-hit-only -t $params.ncore fusionGene.fasta sample1_fusion.fastq | samtools sort -O bam -o sample1_fusion.bam -
@@ -456,7 +460,9 @@ process fusion_mode_bambu_EM{
 }
 
 // This is the workflow to execute the process 
-workflow {    
+workflow { 
+	ch_input_genome =  Channel.fromPath(params.genome, checkIfExists: true)
+	ch_input_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)   
 	if (params.reads) {
         //User can provide either 1 .fastq file or a .csv with .fastq files
         fastq = file(params.reads, checkIfExists:true)
@@ -473,7 +479,7 @@ workflow {
                                         row.containsKey("barcode_map") ? row.barcode_map :  params.barcodeMap,
                                         row.containsKey("clusters") ? row.whitelist : params.clusters) }        
             flexiplex_out_ch = flexiplex(readsChannel.map{it[0..4]})
-            minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
+            minimap_out_ch = minimap(flexiplex_out_ch, ch_input_genome)
             barcodeMaps = readsChannel.collect{it[6]}
             barcodeMaps2 = barcodeMaps.map { it == null ? it : params.barcodeMap }
             whitelists = readsChannel.collect{it[5]}
@@ -488,7 +494,7 @@ workflow {
             readsChannel = readsChannel
                 .map {tuple("Bambu", it, params.chemistry, params.technology, params.whitelist)}
             flexiplex_out_ch = flexiplex(readsChannel)
-            minimap_out_ch = minimap(flexiplex_out_ch, "$params.genome")
+            minimap_out_ch = minimap(flexiplex_out_ch, ch_input_genome)
             barcodeMaps2 = params.barcodeMap
             whiteLists2 = params.whitelist
             clusters2 = params.clusters
@@ -498,7 +504,7 @@ workflow {
         bamsFiles = minimap_out_ch.collect{it[1]}
         if (params.fusionMode) {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
-            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), "$params.genome", "$params.annotation", "$params.jaffal_ref_dir")
+            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), ch_input_genome, ch_input_annotation, "$params.jaffal_ref_dir")
             fusion_mode_bambu_out_ch = fusion_mode_bambu(sampleIds, fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
         }
      }
@@ -538,9 +544,10 @@ workflow {
     if(!params.spatial){
         whiteLists2 = "FALSE" 
     }
-    bambu_out_ch = bambu(sampleIds, bamsFiles, "$params.genome", "$params.annotation", "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution")
+	
+    bambu_out_ch = bambu(sampleIds, bamsFiles, ch_input_genome, ch_input_annotation, "$params.bambuPath", params.bambuParams,"$params.NDR",barcodeMaps2, whiteLists2, clusters2, "$params.resolution")
     if(!params.noEM){
-        bambuEM_out_ch = bambu_EM(bambu_out_ch, "$params.genome", "$params.bambuPath", bambu_out_ch.clusters)
+        bambuEM_out_ch = bambu_EM(bambu_out_ch, ch_input_genome, "$params.bambuPath", bambu_out_ch.clusters)
     }
     if (params.fusionMode && !params.noEM && params.reads) {
         fusion_mode_bambu_EM(fusion_mode_bambu_out_ch, "$params.genome", "$params.bambuPath", bambu_out_ch.clusters)

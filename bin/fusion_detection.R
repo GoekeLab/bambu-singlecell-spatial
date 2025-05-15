@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 library(Biostrings)
 library(data.table)
 devtools::load_all("/mnt/software/bambu")
@@ -6,8 +8,10 @@ args <- commandArgs(trailingOnly = TRUE)
 genome = args[[1]]
 annotations = args[[2]]
 jaffa_results = args[[3]]
-sourceDir = args[[4]]
-source(file.path(sourceDir,"fusion_detection_functions.R"))
+
+path <- Sys.getenv("PATH") |> strsplit(":")
+bin_path <- tail(path[[1]], n=1)
+source(file.path(bin_path,"fusion_detection_functions.R"))
 
 cat('Load transcript sequence information')
 geneSeq <- readDNAStringSet(file=genome)
