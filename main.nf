@@ -80,7 +80,7 @@ process minimap{
 	
 	input: 
 	tuple val(sample),path(newfastq), val(chemistry), val(technology)
-	path genome
+	path(genome)
 
 	output: 
 	tuple val(sample), path ('*.demultiplexed.bam') 
@@ -461,14 +461,9 @@ process fusion_mode_bambu_EM{
 
 // This is the workflow to execute the process 
 workflow { 
-    ch_genome = file(params.genome)
-	if (params.annotation) {
-            ch_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)
-    } else {
-            exit 1, "Please specify a valid annotation file"
-    }
+    ch_genome =  Channel.fromPath(params.genome, checkIfExists: true)
+	ch_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)
 	
-	   
 	if (params.reads) {
         //User can provide either 1 .fastq file or a .csv with .fastq files
         fastq = file(params.reads, checkIfExists:true)
@@ -510,7 +505,7 @@ workflow {
         bamsFiles = minimap_out_ch.collect{it[1]}
         if (params.fusionMode) {
             fusion_mode_JAFFAL_out_ch = fusion_mode_JAFFAL(readsChannel.map{it[0..3]}, "$params.jaffal_ref_dir")
-            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), ch_genome, ch_input_annotation, "$params.jaffal_ref_dir")
+            fusion_mode_extract_out_ch = fusion_mode_extract(fusion_mode_JAFFAL_out_ch, bamsFiles.flatten(), ch_genome, ch_annotation, "$params.jaffal_ref_dir")
             fusion_mode_bambu_out_ch = fusion_mode_bambu(sampleIds, fusion_mode_extract_out_ch, "$params.bambuPath", params.bambuParams)
         }
      }
