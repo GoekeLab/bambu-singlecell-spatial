@@ -461,11 +461,7 @@ process fusion_mode_bambu_EM{
 
 // This is the workflow to execute the process 
 workflow { 
-	if (params.genome) {
-            ch_genome =  Channel.fromPath(params.genome, checkIfExists: true)
-    } else {
-            exit 1, "Please specify a valid genome fasta file"
-    }
+    ch_genome = file(params.genome)
 	if (params.annotation) {
             ch_annotation =  Channel.fromPath(params.annotation, checkIfExists: true)
     } else {
