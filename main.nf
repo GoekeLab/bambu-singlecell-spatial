@@ -550,7 +550,7 @@ workflow {
         bambuEM_out_ch = bambu_EM(bambu_out_ch, ch_input_genome, "$params.bambuPath", bambu_out_ch.clusters)
     }
     if (params.fusionMode && !params.noEM && params.reads) {
-        fusion_mode_bambu_EM(fusion_mode_bambu_out_ch, "$params.genome", "$params.bambuPath", bambu_out_ch.clusters)
+        fusion_mode_bambu_EM(fusion_mode_bambu_out_ch, ch_input_genome, "$params.bambuPath", bambu_out_ch.clusters)
     }
 }
 
